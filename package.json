@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "firebase:login": "firebase login",
-    "firebase:deploy": "firebase deploy --only firestore"
+    "firebase:deploy": "firebase deploy --only firestore",
+    "deploy:web": "vite build && firebase deploy --only hosting",
+    "deploy:all": "vite build && firebase deploy"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

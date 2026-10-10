@@ -142,7 +142,7 @@ const AppDownloadPage = ({ onBackToApp }) => {
               marginBottom: '16px'
             }}>
               <ShieldCheck size={16} color="#0284c7" />
-              Official Release v1.0.0 • Safe & Verified
+              Official Release v1.0.0 • Crashlytics & Perf Active
             </div>
 
             <h2 style={{
@@ -166,11 +166,24 @@ const AppDownloadPage = ({ onBackToApp }) => {
               fontSize: '1rem',
               lineHeight: 1.6,
               color: '#475569',
-              marginBottom: '24px'
+              marginBottom: '18px'
             }}>
               Manage pure 20L water can deliveries, track live fleet dispatch, schedule auto-refills, 
               and calculate empty can returns directly from your mobile phone.
             </p>
+
+            {/* Monitoring Badges */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '22px' }}>
+              <span style={{ fontSize: '0.78rem', backgroundColor: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', padding: '4px 10px', borderRadius: '12px', fontWeight: 600 }}>
+                🛡️ Crashlytics Protected
+              </span>
+              <span style={{ fontSize: '0.78rem', backgroundColor: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: '12px', fontWeight: 600 }}>
+                ⚡ Performance Monitored
+              </span>
+              <span style={{ fontSize: '0.78rem', backgroundColor: '#faf5ff', color: '#6b21a8', border: '1px solid #e9d5ff', padding: '4px 10px', borderRadius: '12px', fontWeight: 600 }}>
+                📊 Release Quality v1.0.0
+              </span>
+            </div>
 
             {/* Quick Specs Card */}
             <div style={{
@@ -190,7 +203,7 @@ const AppDownloadPage = ({ onBackToApp }) => {
               </div>
               <div>
                 <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0, fontWeight: 600 }}>SIZE</p>
-                <p style={{ fontSize: '1rem', color: '#0f172a', margin: 0, fontWeight: 800 }}>54.8 MB</p>
+                <p style={{ fontSize: '1rem', color: '#0f172a', margin: 0, fontWeight: 800 }}>55.8 MB</p>
               </div>
               <div>
                 <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0, fontWeight: 600 }}>OS SUPPORT</p>

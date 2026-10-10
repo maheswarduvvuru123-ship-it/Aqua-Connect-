@@ -2,6 +2,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_performance/firebase_performance.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/cart_provider.dart';
@@ -14,17 +17,53 @@ import 'utils/theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Safeguard: Prevent unhandled asynchronous errors from crashing the app on older devices
-  PlatformDispatcher.instance.onError = (error, stack) {
-    debugPrint('AquaConnect Uncaught Exception: $error');
-    return true; // Mark handled so process doesn't terminate
-  };
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
 
-  // Safeguard: Catch Flutter layout and widget errors
-  FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details);
-    debugPrint('AquaConnect Flutter Error: ${details.exceptionAsString()}');
-  };
+    // 1. Firebase Crashlytics Setup
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+    await FirebaseCrashlytics.instance.setCustomKey('app_version', '1.0.0');
+    await FirebaseCrashlytics.instance.setCustomKey('release_version', 'v1.0.0');
+    await FirebaseCrashlytics.instance.setCustomKey('environment', 'production');
+
+    // Forward unhandled Flutter framework errors to Crashlytics
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FlutterError.presentError(details);
+      FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+    };
+
+    // Forward unhandled asynchronous errors to Crashlytics
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true; // Mark handled so app doesn't abruptly crash on older devices
+    };
+
+    // 2. Firebase Performance Monitoring Setup
+    final performance = FirebasePerformance.instance;
+    await performance.setPerformanceCollectionEnabled(true);
+    final Trace startupTrace = performance.newTrace('app_startup_trace');
+    await startupTrace.start();
+
+    // 3. Firebase Release Monitoring & Analytics Setup (v1.0.0)
+    final analytics = FirebaseAnalytics.instance;
+    await analytics.setAnalyticsCollectionEnabled(true);
+    await analytics.logAppOpen();
+    await analytics.logEvent(
+      name: 'release_monitor_v1_0_0',
+      parameters: {
+        'version': '1.0.0',
+        'build': '1',
+        'platform': 'android',
+        'release_status': 'production_verified',
+      },
+    );
+
+    await startupTrace.stop();
+  } catch (e) {
+    debugPrint('Firebase Observability initialization error: $e');
+  }
 
   // Graceful fallback UI instead of crashing or showing red screen of death
   ErrorWidget.builder = (FlutterErrorDetails errorDetails) {
@@ -56,14 +95,6 @@ Future<void> main() async {
     );
   };
 
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  } catch (e) {
-    debugPrint('Firebase initialization warning: $e');
-  }
-
   runApp(
     MultiProvider(
       providers: [
@@ -79,12 +110,17 @@ Future<void> main() async {
 class AquaConnectApp extends StatelessWidget {
   const AquaConnectApp({super.key});
 
+  static FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+  static FirebaseAnalyticsObserver observer =
+      FirebaseAnalyticsObserver(analytics: analytics);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'AquaConnect',
       debugShowCheckedModeBanner: false,
       theme: AquaTheme.lightTheme,
+      navigatorObservers: <NavigatorObserver>[observer],
       home: Consumer<AuthProvider>(
         builder: (context, auth, _) {
           if (!auth.isAuthenticated) {

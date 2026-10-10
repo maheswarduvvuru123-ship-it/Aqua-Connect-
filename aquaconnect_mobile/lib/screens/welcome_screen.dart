@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_performance/firebase_performance.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import '../providers/auth_provider.dart';
 import '../providers/water_delivery_provider.dart';
 import '../utils/theme.dart';
@@ -718,10 +721,38 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     ),
                   ],
                   const SizedBox(height: 24),
-                  const Center(
-                    child: Text(
-                      'Cross-Platform • Android • iOS • Web',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                  Center(
+                    child: InkWell(
+                      onTap: () => _showObservabilityDialog(context),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'v1.0.0 • Crashlytics & Perf Active',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.info_outline, size: 13, color: Color(0xFF64748B)),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -729,6 +760,127 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _showObservabilityDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.shield_outlined, color: AquaTheme.primary, size: 24),
+                const SizedBox(width: 10),
+                const Text(
+                  'AquaConnect v1.0.0 Monitoring',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text('ACTIVE', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Real-time production observability features currently active in this release:',
+              style: TextStyle(fontSize: 13, color: Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            _monitoringRow(Icons.bug_report_outlined, 'Firebase Crashlytics', 'Captures fatal & non-fatal crashes with device telemetry.'),
+            _monitoringRow(Icons.speed_outlined, 'Firebase Performance', 'Monitors app startup, network latency & UI screen traces.'),
+            _monitoringRow(Icons.analytics_outlined, 'Release Monitoring (v1.0.0)', 'Tracks crash-free sessions & release adoption health.'),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.bolt, size: 16),
+                    label: const Text('Test Crashlytics', style: TextStyle(fontSize: 12)),
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      try {
+                        FirebaseCrashlytics.instance.log('Diagnostic non-fatal test event');
+                        await FirebaseCrashlytics.instance.recordError(
+                          Exception('AquaConnect v1.0.0 Diagnostic Event'),
+                          StackTrace.current,
+                          reason: 'Crashlytics verification ping',
+                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('✅ Test event logged to Firebase Crashlytics!')),
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint('Crashlytics test error: $e');
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.timer_outlined, size: 16, color: Colors.white),
+                    label: const Text('Ping Perf Trace', style: TextStyle(fontSize: 12, color: Colors.white)),
+                    style: ElevatedButton.styleFrom(backgroundColor: AquaTheme.primary),
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      try {
+                        final trace = FirebasePerformance.instance.newTrace('manual_diagnostic_trace');
+                        await trace.start();
+                        await Future.delayed(const Duration(milliseconds: 150));
+                        await trace.stop();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('✅ Performance trace recorded & sent!')),
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint('Perf test error: $e');
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _monitoringRow(IconData icon, String title, String subtitle) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AquaTheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(subtitle, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

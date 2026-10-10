@@ -16,7 +16,10 @@ import {
   Sparkles,
   RefreshCw,
   Crosshair,
-  Navigation
+  Navigation,
+  Smartphone,
+  Download,
+  QrCode
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -205,6 +208,28 @@ const WelcomePage = () => {
             <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: isLiveFirebase ? '#10b981' : '#0284c7' }} />
             {isLiveFirebase ? 'Firebase Live' : 'Active Realtime Engine'}
           </span>
+
+          <button
+            onClick={() => { window.location.hash = '#download'; }}
+            style={{
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              padding: '7px 14px',
+              borderRadius: '20px',
+              backgroundColor: '#0284c7',
+              color: '#ffffff',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              boxShadow: '0 2px 10px rgba(2, 132, 199, 0.35)',
+              transition: 'transform 0.15s ease'
+            }}
+          >
+            <Smartphone size={15} />
+            Download App (.apk)
+          </button>
         </div>
       </header>
 

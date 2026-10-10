@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from './context/AuthContext';
 import WelcomePage from './pages/WelcomePage';
+import AppDownloadPage from './pages/AppDownloadPage';
 import SupplierLayout from './layouts/SupplierLayout';
 import CustomerLayout from './layouts/CustomerLayout';
 import Toast from './components/Toast';
@@ -8,6 +9,35 @@ import { Droplets } from 'lucide-react';
 
 function App() {
   const { currentUser, userRole, loading } = useAuth();
+  const [isDownloadRoute, setIsDownloadRoute] = useState(
+    window.location.hash === '#download' || window.location.pathname === '/download'
+  );
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setIsDownloadRoute(
+        window.location.hash === '#download' || window.location.pathname === '/download'
+      );
+    };
+    window.addEventListener('hashchange', handleLocationChange);
+    window.addEventListener('popstate', handleLocationChange);
+    return () => {
+      window.removeEventListener('hashchange', handleLocationChange);
+      window.removeEventListener('popstate', handleLocationChange);
+    };
+  }, []);
+
+  if (isDownloadRoute) {
+    return (
+      <>
+        <AppDownloadPage onBackToApp={() => {
+          window.location.hash = '';
+          setIsDownloadRoute(false);
+        }} />
+        <Toast />
+      </>
+    );
+  }
 
   if (loading) {
     return (

@@ -42,7 +42,6 @@ const AppDownloadPage = ({ onBackToApp }) => {
 
   const handleDownloadApk = () => {
     setDownloadStarted(true);
-    window.location.href = APK_DOWNLOAD_URL;
   };
 
   return (
@@ -201,7 +200,9 @@ const AppDownloadPage = ({ onBackToApp }) => {
 
             {/* Primary Action Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
-              <button
+              <a
+                href={APK_DOWNLOAD_URL}
+                download="aquaconnect.apk"
                 onClick={handleDownloadApk}
                 style={{
                   display: 'flex',
@@ -212,7 +213,7 @@ const AppDownloadPage = ({ onBackToApp }) => {
                   borderRadius: '14px',
                   background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
                   color: 'white',
-                  border: 'none',
+                  textDecoration: 'none',
                   fontSize: '1.05rem',
                   fontWeight: 800,
                   cursor: 'pointer',
@@ -222,7 +223,7 @@ const AppDownloadPage = ({ onBackToApp }) => {
               >
                 <Download size={22} />
                 Download Android App (Release APK)
-              </button>
+              </a>
 
               <button
                 onClick={() => { window.location.hash = ''; if (onBackToApp) onBackToApp(); }}
@@ -261,7 +262,7 @@ const AppDownloadPage = ({ onBackToApp }) => {
               }}>
                 <CheckCircle2 size={20} color="#10b981" />
                 <span>
-                  <strong>Download started!</strong> Check your browser downloads or notification bar for <code>app-release.apk</code>.
+                  <strong>Download started!</strong> Check your browser downloads or notification bar for <code>aquaconnect.apk</code>.
                 </span>
               </div>
             )}
@@ -431,7 +432,7 @@ const AppDownloadPage = ({ onBackToApp }) => {
                 Allow Installation
               </h4>
               <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b', lineHeight: 1.5 }}>
-                Open <code>app-release.apk</code> from your notifications. If prompted, toggle <strong>"Allow from this source"</strong> in Chrome/Files settings.
+                Open <code>aquaconnect.apk</code> from your notifications. If prompted, toggle <strong>"Allow from this source"</strong> in Chrome/Files settings.
               </p>
             </div>
 

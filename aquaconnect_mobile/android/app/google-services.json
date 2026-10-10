@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "818962725324",
+    "project_id": "aqua-ec4f5",
+    "storage_bucket": "aqua-ec4f5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:818962725324:android:d7d70d99fb20aa896d4569",
+        "android_client_info": {
+          "package_name": "com.aquaconnect"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDPlWeOhCpAPQ2Y_kPga0LmgAyPs2H7CZU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

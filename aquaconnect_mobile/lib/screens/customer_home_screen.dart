@@ -255,7 +255,7 @@ class _CustomerStoreTabState extends State<_CustomerStoreTab> {
       body: Stack(
         children: [
           ListView(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 90),
+            padding: EdgeInsets.fromLTRB(14, 10, 14, 95 + MediaQuery.of(context).padding.bottom),
             children: [
               // 1. Zomato / Swiggy Style Delivery Location Bar
               InkWell(
@@ -891,7 +891,7 @@ class _CustomerStoreTabState extends State<_CustomerStoreTab> {
             Positioned(
               left: 14,
               right: 14,
-              bottom: 14,
+              bottom: 14 + MediaQuery.of(context).padding.bottom,
               child: GestureDetector(
                 onTap: () {
                   showWaterCheckoutBottomSheet(

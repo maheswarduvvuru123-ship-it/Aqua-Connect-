@@ -632,8 +632,8 @@ class _WaterPlantDetailsScreenState extends State<WaterPlantDetailsScreen> {
                 ],
 
                 // Bottom Padding for Floating Cart Bar
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 90),
+                SliverToBoxAdapter(
+                  child: SizedBox(height: 90 + MediaQuery.of(context).padding.bottom),
                 ),
               ],
             ),
@@ -643,7 +643,7 @@ class _WaterPlantDetailsScreenState extends State<WaterPlantDetailsScreen> {
               Positioned(
                 left: 16,
                 right: 16,
-                bottom: 16,
+                bottom: 16 + MediaQuery.of(context).padding.bottom,
                 child: GestureDetector(
                   onTap: () {
                     showWaterCheckoutBottomSheet(

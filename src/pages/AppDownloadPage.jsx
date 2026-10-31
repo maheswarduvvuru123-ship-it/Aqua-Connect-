@@ -12,7 +12,10 @@ import {
   Copy,
   Check,
   Globe,
-  Share2
+  Share2,
+  Package,
+  Layers,
+  Lock
 } from 'lucide-react';
 
 const APK_DOWNLOAD_URL = "https://github.com/maheswarduvvuru123-ship-it/Aqua-Connect-/releases/download/v1.0.0/app-release.apk";
@@ -87,7 +90,7 @@ const AppDownloadPage = ({ onBackToApp }) => {
             </div>
             <div>
               <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                AquaConnect
+                Aqua connect
               </h1>
               <p style={{ fontSize: '0.75rem', color: '#0284c7', fontWeight: 600, margin: 0 }}>
                 Official Mobile & Web App
@@ -152,7 +155,7 @@ const AppDownloadPage = ({ onBackToApp }) => {
               color: '#0f172a',
               marginBottom: '14px'
             }}>
-              Download AquaConnect <br />
+              Download Aqua connect <br />
               <span style={{
                 background: 'linear-gradient(135deg, #0284c7 0%, #06b6d4 100%)',
                 WebkitBackgroundClip: 'text',
@@ -237,6 +240,48 @@ const AppDownloadPage = ({ onBackToApp }) => {
                 <Download size={22} />
                 Download Android App (Release APK)
               </a>
+
+              {/* Indus Appstore (.AAB) Card */}
+              <div style={{
+                padding: '16px 18px',
+                borderRadius: '14px',
+                backgroundColor: '#f5f3ff',
+                border: '1.5px solid #ddd6fe',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '8px',
+                      backgroundColor: '#7c3aed',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Package size={16} />
+                    </div>
+                    <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#5b21b6' }}>
+                      Indus Appstore Ready (.AAB Bundle)
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', backgroundColor: '#ede9fe', color: '#6d28d9', padding: '3px 8px', borderRadius: '8px', fontWeight: 700 }}>
+                    PhonePe Indus Verified
+                  </span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.82rem', color: '#6d28d9', lineHeight: 1.4 }}>
+                  Built as an optimized Android App Bundle (AAB, 56.7 MB) with 64-bit architecture and auto ABI splits. Ready to upload to Indus Appstore Developer Console.
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                  <code style={{ fontSize: '0.75rem', backgroundColor: '#ffffff', border: '1px solid #c4b5fd', padding: '4px 8px', borderRadius: '6px', color: '#4c1d95', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    releases/app-release.aab
+                  </code>
+                </div>
+              </div>
 
               <button
                 onClick={() => { window.location.hash = ''; if (onBackToApp) onBackToApp(); }}
@@ -349,7 +394,7 @@ const AppDownloadPage = ({ onBackToApp }) => {
             }}>
               <img 
                 src={QR_IMAGE_URL} 
-                alt="AquaConnect Scan Me QR Code" 
+                alt="Aqua connect Scan Me QR Code" 
                 style={{ width: '220px', height: '220px', display: 'block', borderRadius: '8px' }}
               />
             </div>
@@ -477,6 +522,61 @@ const AppDownloadPage = ({ onBackToApp }) => {
             </div>
           </div>
         </div>
+
+        {/* Indus Appstore Developer Information & Admin Access */}
+        <div style={{
+          marginTop: '28px',
+          padding: '24px',
+          backgroundColor: '#ffffff',
+          borderRadius: '20px',
+          border: '1px solid #e2e8f0',
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+          gap: '20px'
+        }}>
+          {/* Indus Card */}
+          <div style={{
+            padding: '18px',
+            borderRadius: '14px',
+            backgroundColor: '#f5f3ff',
+            border: '1px solid #ddd6fe'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Package size={20} color="#7c3aed" />
+              <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#5b21b6' }}>
+                Indus Appstore (.aab) Verification
+              </h4>
+            </div>
+            <p style={{ margin: '0 0 10px 0', fontSize: '0.83rem', color: '#6d28d9', lineHeight: 1.5 }}>
+              PhonePe Indus Appstore requires the Android App Bundle format (<strong>.aab</strong>). The release bundle has been compiled with all 64-bit architectures, Crashlytics, and performance tracing.
+            </p>
+            <div style={{ fontSize: '0.78rem', color: '#4c1d95', backgroundColor: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #c4b5fd' }}>
+              📁 <strong>Bundle File:</strong> <code>releases/app-release.aab</code> (56.7 MB)
+            </div>
+          </div>
+
+          {/* Admin Portal Card */}
+          <div style={{
+            padding: '18px',
+            borderRadius: '14px',
+            backgroundColor: '#f0f9ff',
+            border: '1px solid #bae6fd'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Lock size={20} color="#0284c7" />
+              <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#0369a1' }}>
+                Aqua connect Admin Portal Access
+              </h4>
+            </div>
+            <p style={{ margin: '0 0 10px 0', fontSize: '0.83rem', color: '#0284c7', lineHeight: 1.5 }}>
+              To access the centralized Enterprise Admin Dashboard for reviewing water orders, reconciling direct supplier UPI payments, and approving accounts:
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.8rem', color: '#0f172a' }}>
+              <div>🌐 <strong>Admin URL:</strong> <a href="/#admin" style={{ color: '#0284c7', fontWeight: 700, textDecoration: 'underline' }}>aqua-ec4f5.web.app/#admin</a> (or <code>/admin</code>)</div>
+              <div>🔑 <strong>Email:</strong> <code>admin@aquaconnect.com</code> • <strong>Phone:</strong> <code>+91 85228 28688</code></div>
+            </div>
+          </div>
+        </div>
       </main>
 
       {/* Footer */}
@@ -489,7 +589,7 @@ const AppDownloadPage = ({ onBackToApp }) => {
         color: '#64748b'
       }}>
         <p style={{ margin: 0 }}>
-          AquaConnect © {new Date().getFullYear()} • Smart Water Delivery & Plant Management
+          Aqua connect © {new Date().getFullYear()} • Smart Water Delivery & Plant Management
         </p>
       </footer>
     </div>

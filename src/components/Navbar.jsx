@@ -1,5 +1,5 @@
 import React from 'react';
-import { Droplets, ShoppingBag, LogOut, ShieldCheck, UserCheck, RefreshCw } from 'lucide-react';
+import { Droplets, ShoppingBag, LogOut, ShieldCheck, UserCheck, RefreshCw, Smartphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import NotificationCenter from './NotificationCenter';
@@ -43,13 +43,25 @@ const Navbar = ({ onOpenCart, currentTab, setCurrentTab }) => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>
-              AquaConnect
+              Aqua connect
             </span>
             <span 
-              className={userRole === 'supplier' ? 'badge badge-confirmed' : 'badge badge-out-for-delivery'}
-              style={{ fontSize: '0.7rem', textTransform: 'uppercase' }}
+              className={
+                userRole === 'super_admin' || userRole === 'admin'
+                  ? 'badge'
+                  : userRole === 'supplier'
+                  ? 'badge badge-confirmed'
+                  : 'badge badge-out-for-delivery'
+              }
+              style={{ 
+                fontSize: '0.7rem', 
+                textTransform: 'uppercase',
+                backgroundColor: (userRole === 'super_admin' || userRole === 'admin') ? '#ede9fe' : undefined,
+                color: (userRole === 'super_admin' || userRole === 'admin') ? '#6b21a8' : undefined,
+                border: (userRole === 'super_admin' || userRole === 'admin') ? '1px solid #d8b4fe' : undefined
+              }}
             >
-              {userRole === 'supplier' ? 'Supplier Portal' : 'Customer'}
+              {userRole === 'super_admin' ? 'Super Admin' : userRole === 'admin' ? 'Admin Portal' : userRole === 'supplier' ? 'Supplier Portal' : 'Customer'}
             </span>
           </div>
           <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
@@ -60,35 +72,6 @@ const Navbar = ({ onOpenCart, currentTab, setCurrentTab }) => {
 
       {/* Right controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        {/* Backend status tag */}
-        <div 
-          style={{
-            display: 'none',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '5px 10px',
-            borderRadius: '20px',
-            backgroundColor: isLiveFirebase ? '#ecfdf5' : '#f0f9ff',
-            border: `1px solid ${isLiveFirebase ? '#a7f3d0' : '#bae6fd'}`,
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            color: isLiveFirebase ? '#065f46' : '#0369a1'
-          }}
-          className="desktop-only-badge"
-        >
-          <span 
-            style={{
-              width: 8, 
-              height: 8, 
-              borderRadius: '50%', 
-              backgroundColor: isLiveFirebase ? '#10b981' : '#0284c7'
-            }} 
-          />
-          {isLiveFirebase ? 'Firebase Live' : 'Active Realtime Sync'}
-        </div>
-
-
-
         {/* Customer Cart button */}
         {userRole === 'customer' && (
           <button 
@@ -134,11 +117,48 @@ const Navbar = ({ onOpenCart, currentTab, setCurrentTab }) => {
           </button>
         )}
 
+        {/* Get App / QR Download Button */}
+        <button
+          onClick={() => { window.location.hash = '#download'; }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: '10px',
+            backgroundColor: '#f0f9ff',
+            border: '1px solid #bae6fd',
+            color: '#0284c7',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          title="Download Mobile App / Scan QR"
+        >
+          <Smartphone size={16} />
+          <span className="hide-on-mobile">Get App</span>
+        </button>
+
         {/* Notifications */}
         <NotificationCenter />
 
-        {/* User Profile info */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Clickable User Profile info */}
+        <div 
+          onClick={() => setCurrentTab && setCurrentTab('profile')}
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '10px',
+            cursor: 'pointer',
+            padding: '4px 8px',
+            borderRadius: '12px',
+            transition: 'background-color 0.15s ease'
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+          title="Open Profile & Account Settings"
+        >
           <img 
             src={currentUser?.profileImage || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80"}
             alt={currentUser?.name || "User"}
@@ -155,28 +175,62 @@ const Navbar = ({ onOpenCart, currentTab, setCurrentTab }) => {
               {currentUser?.name || 'Aqua User'}
             </span>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              {currentUser?.phone || currentUser?.email}
+              {(userRole === 'admin' || userRole === 'super_admin' || currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.email?.endsWith('@aquaconnect.com') || (currentUser?.name && currentUser.name.toLowerCase().includes('admin')))
+                ? '+91 85228 28688'
+                : ((currentUser?.phone && !currentUser.phone.includes('00001')) ? currentUser.phone : (currentUser?.email || '+91 85228 28688'))}
             </span>
           </div>
+        </div>
 
+        {/* Dedicated Switch Portal button for Admins */}
+        {(userRole === 'admin' || userRole === 'super_admin') && (
           <button 
             onClick={logout}
             style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
-              color: 'var(--danger)',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: '#fee2e2',
-              marginLeft: '4px'
+              gap: '6px',
+              padding: '7px 12px',
+              borderRadius: '8px',
+              backgroundColor: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              color: '#0284c7',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
             }}
-            title="Sign Out"
+            title="Sign out of Admin and open Customer & Supplier Login"
           >
-            <LogOut size={16} />
+            <RefreshCw size={14} />
+            <span className="hide-on-mobile">Customer/Supplier Portal</span>
           </button>
-        </div>
+        )}
+
+        {/* Clear Sign Out button */}
+        <button 
+          onClick={logout}
+          style={{
+            height: '36px',
+            padding: '0 12px',
+            borderRadius: '8px',
+            color: 'var(--danger)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            backgroundColor: '#fee2e2',
+            border: '1px solid #fecaca',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'background-color 0.15s ease'
+          }}
+          title="Sign Out of Account"
+        >
+          <LogOut size={15} />
+          <span className="hide-on-mobile">Sign Out</span>
+        </button>
       </div>
     </header>
   );

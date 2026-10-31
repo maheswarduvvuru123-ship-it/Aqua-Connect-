@@ -9,18 +9,76 @@ const CONTAINER_TYPES = [
   'Disposable Bottle',
   'Packaged Box',
   'Dispenser Bubble Top',
+  'Water Packet',
   'Custom Packaging'
 ];
 
-const PRESET_IMAGES = [
-  { label: '20L Plastic Can', url: 'https://5.imimg.com/data5/AP/MU/MY-4515526/20-litre-can-jug-jar-dispenser-500x500.jpg' },
-  { label: '20L Cool Camper Can', url: 'https://5.imimg.com/data5/SELLER/Default/2021/4/AM/HZ/GJ/35689307/20ltres-cool-can-1--500x500.jpeg' },
-  { label: '1L Water Bottles', url: 'https://5.imimg.com/data5/SELLER/Default/2022/11/NF/WB/JJ/45711328/1-litre-packed-drinking-water-bottle-500x500.jpg' },
-  { label: 'Water Packets (50s)', url: 'https://5.imimg.com/data5/SELLER/Default/2024/3/401402931/HR/MG/JG/11262634/ldpe-packed-drinking-water-pouch-500x500.jpg' },
-  { label: '5L Water Dispenser', url: 'https://images.unsplash.com/photo-1523362628745-0c100150b504?w=500&auto=format&fit=crop&q=80' }
+export const STANDARD_WATER_TEMPLATES = [
+  {
+    id: 'tpl_normal_can',
+    name: '20L Normal RO Water Can',
+    description: 'Standard 20 Litre purified RO+UV mineral water in returnable crystal blue can.',
+    price: 50,
+    stock: 60,
+    unit: '20L',
+    containerType: 'Returnable Jar',
+    image: '/images/bubble_top_can.jpg',
+    tag: '💧 Normal Water'
+  },
+  {
+    id: 'tpl_cool_can',
+    name: '20L Cool / Chilled Water Can',
+    description: 'Chilled 20 Litre purified mineral water insulated camper can with dispensing tap.',
+    price: 65,
+    stock: 50,
+    unit: '20L Chilled',
+    containerType: 'Returnable Jar',
+    image: '/images/cool_water_can.jpg',
+    tag: '❄️ Cool Water'
+  },
+  {
+    id: 'tpl_water_packets',
+    name: 'Drinking Water Packets (50 Pouches)',
+    description: 'Bundle of 50 hygienic 250ml sealed food-grade pure drinking water pouches.',
+    price: 75,
+    stock: 60,
+    unit: '250ml x 50',
+    containerType: 'Water Packet',
+    image: '/images/water_pouches_pack.jpg',
+    tag: '📦 Water Packets'
+  },
+  {
+    id: 'tpl_bottles_1l',
+    name: '1L Water Bottles (Box of 12)',
+    description: 'Carton of twelve 1 Litre packaged natural mineral water bottles.',
+    price: 180,
+    stock: 45,
+    unit: '1L x 12',
+    containerType: 'Packaged Box',
+    image: '/images/bottled_water_pack.jpg',
+    tag: '🍾 1L Bottles'
+  },
+  {
+    id: 'tpl_bottles_500ml',
+    name: '500ml Water Bottles (Box of 24)',
+    description: 'Carton of 24 packaged 500ml pure mineral water bottles for travel & events.',
+    price: 220,
+    stock: 40,
+    unit: '500ml x 24',
+    containerType: 'Packaged Box',
+    image: '/images/bottled_water_pack.jpg',
+    tag: '🥤 500ml Bottles'
+  }
 ];
 
-const ProductModal = ({ isOpen, onClose, product, supplierId }) => {
+const PRESET_IMAGES = [
+  { label: '💧 20L Normal Can', url: '/images/bubble_top_can.jpg' },
+  { label: '❄️ 20L Cool Can', url: '/images/cool_water_can.jpg' },
+  { label: '📦 Water Packets (50s)', url: '/images/water_pouches_pack.jpg' },
+  { label: '🍾 Bottled Water Pack', url: '/images/bottled_water_pack.jpg' }
+];
+
+const ProductModal = ({ isOpen, onClose, product, supplierId, initialTemplate = null }) => {
   const { showToast } = useNotifications();
   const isEditing = Boolean(product);
 
@@ -35,6 +93,20 @@ const ProductModal = ({ isOpen, onClose, product, supplierId }) => {
     isActive: true
   });
 
+  const applyTemplate = (tpl) => {
+    setFormData({
+      name: tpl.name,
+      description: tpl.description,
+      price: tpl.price,
+      stock: tpl.stock,
+      unit: tpl.unit,
+      containerType: tpl.containerType,
+      image: tpl.image,
+      isActive: true
+    });
+    showToast(`Loaded template for "${tpl.name}"!`, 'info');
+  };
+
   useEffect(() => {
     if (product) {
       setFormData({
@@ -47,10 +119,12 @@ const ProductModal = ({ isOpen, onClose, product, supplierId }) => {
         image: product.image || PRESET_IMAGES[0].url,
         isActive: product.isActive !== undefined ? product.isActive : true
       });
+    } else if (initialTemplate) {
+      applyTemplate(initialTemplate);
     } else {
       setFormData({
-        name: '',
-        description: '',
+        name: '20L Normal RO Water Can',
+        description: 'Standard 20 Litre purified RO+UV mineral water in returnable crystal blue can.',
         price: 50,
         stock: 50,
         unit: '20L',
@@ -59,7 +133,7 @@ const ProductModal = ({ isOpen, onClose, product, supplierId }) => {
         isActive: true
       });
     }
-  }, [product, isOpen]);
+  }, [product, isOpen, initialTemplate]);
 
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
@@ -142,6 +216,47 @@ const ProductModal = ({ isOpen, onClose, product, supplierId }) => {
       maxWidth="620px"
     >
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {!isEditing && (
+          <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '12px', padding: '12px 14px' }}>
+            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase', marginBottom: '8px' }}>
+              ⚡ 1-Click Quick Fill from Standard Water Products
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(105px, 1fr))', gap: '8px' }}>
+              {STANDARD_WATER_TEMPLATES.map((tpl) => (
+                <button
+                  type="button"
+                  key={tpl.id}
+                  onClick={() => applyTemplate(tpl)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '8px 6px',
+                    borderRadius: '8px',
+                    backgroundColor: formData.name === tpl.name ? '#e0f2fe' : '#ffffff',
+                    border: formData.name === tpl.name ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <img 
+                    src={tpl.image} 
+                    alt={tpl.name}
+                    style={{ width: '42px', height: '42px', objectFit: 'cover', borderRadius: '6px', marginBottom: '4px' }}
+                  />
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
+                    {tpl.tag}
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: '#0284c7', fontWeight: 800, marginTop: '2px' }}>
+                    ₹{tpl.price}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Name and Container type */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
           <div>

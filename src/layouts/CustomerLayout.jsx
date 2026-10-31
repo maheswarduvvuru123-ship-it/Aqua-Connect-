@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import CustomerNav from '../components/CustomerNav';
 import CustomerHome from '../pages/customer/CustomerHome';
@@ -10,6 +10,16 @@ import CartDrawer from '../components/CartDrawer';
 const CustomerLayout = () => {
   const [activeTab, setActiveTab] = useState('home');
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  useEffect(() => {
+    const handleNav = (e) => {
+      if (e.detail) {
+        setActiveTab(e.detail);
+      }
+    };
+    window.addEventListener('navigate-customer-tab', handleNav);
+    return () => window.removeEventListener('navigate-customer-tab', handleNav);
+  }, []);
 
   const renderContent = () => {
     switch (activeTab) {

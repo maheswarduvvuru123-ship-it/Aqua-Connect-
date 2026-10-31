@@ -73,10 +73,52 @@ const SupplierCustomers = () => {
     const allCustomers = Array.from(custMap.values());
     const allOrders = getCollection('orders') || [];
 
-    const myOrders = filterOrdersForSupplier(allOrders, currentUser?.uid, currentUser?.address, currentUser?.city);
-    const myCustomers = filterCustomersForSupplier(allCustomers, allOrders, currentUser?.uid, currentUser?.address, currentUser?.city);
+    const myOrders = filterOrdersForSupplier(
+      allOrders, 
+      currentUser?.uid, 
+      currentUser?.address, 
+      currentUser?.city, 
+      currentUser?.deliveryAreas || [], 
+      currentUser?.email, 
+      currentUser?.phone
+    );
+    const myCustomers = filterCustomersForSupplier(
+      allCustomers, 
+      allOrders, 
+      currentUser?.uid, 
+      currentUser?.address, 
+      currentUser?.city, 
+      currentUser?.deliveryAreas || []
+    );
 
-    setCustomers(myCustomers);
+    // Compute live metrics strictly from orders placed with this supplier
+    const realCustomersWithMetrics = myCustomers.map(cust => {
+      const cid = cust.customerId || cust.userId || cust.id;
+      const theirOrders = myOrders.filter(o => 
+        o.customerId === cid || 
+        (cust.phone && cust.phone !== 'Not provided' && o.customerPhone === cust.phone) || 
+        (cust.email && (o.customerEmail === cust.email || o.customerId === cust.email))
+      );
+
+      const totalOrdersCount = theirOrders.length;
+      const totalAmountSum = theirOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+      const pendingPaymentSum = theirOrders.reduce((sum, o) => {
+        if (o.paymentStatus === 'Unpaid' || o.paymentStatus === 'Pending Verification' || o.paymentStatus === 'Partially Paid') {
+          return sum + (o.outstandingBalance !== undefined ? o.outstandingBalance : (o.totalAmount || 0));
+        }
+        return sum;
+      }, 0);
+
+      return {
+        ...cust,
+        totalOrders: totalOrdersCount,
+        totalAmount: totalAmountSum,
+        pendingPayment: pendingPaymentSum,
+        status: totalOrdersCount > 0 ? 'Active' : (cust.status || 'Active')
+      };
+    });
+
+    setCustomers(realCustomersWithMetrics);
     setOrders(myOrders);
   };
 

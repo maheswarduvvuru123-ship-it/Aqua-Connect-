@@ -30,12 +30,27 @@ It features a dual-sided architecture:
 
 ---
 
-## 👥 Dual-Portal Roles & Features
+## 👥 Multi-Portal Architecture & Roles
 
 ### 1. Welcome & Authentication
-- **Clean Aqua Landing**: Direct role selection between **[Supplier Login]** and **[Customer Login]**.
-- **Role Isolation**: Strict redirection based on the user's Firestore role attribute (`supplier` or `customer`). Customers cannot open supplier pages and vice-versa.
-- **Fast 1-Click Demo Evaluation**: One-click demo buttons allowing instant evaluation as **Supplier (Rajesh)** or **Customer (Ramesh)** with zero setup.
+- **Multi-Role Portal Access**: Direct role selection between **[Customer Login]**, **[Supplier Login]**, and **[Admin Website]**.
+- **Role Isolation**: Strict redirection based on the user's Firestore role attribute (`admin`, `super_admin`, `supplier`, `customer`). Cross-role route tampering is strictly prohibited.
+- **Fast 1-Click Demo Evaluation Credentials**:
+  - 👑 **Platform Administrator**: `admin@aquaconnect.com` / `admin123`
+  - ⚡ **Super Administrator**: `superadmin@aquaconnect.com` / `admin123`
+  - 🏭 **Water Plant Supplier (Rajesh)**: `supplier@aquaconnect.com` / `supplier123`
+  - 🛒 **Retail/Home Customer (Ramesh)**: `customer@aquaconnect.com` / `customer123`
+
+---
+
+### 2. Admin Website & Control Center (`/admin`)
+- **Operations Dashboard**: Real-time KPI counters (active orders, revenue, unverified payments, platform subscriptions), plant fulfillment feeds, and quick verification actions.
+- **Live Orders Center**: Full cross-plant visibility, direct supplier reassignment, order status transition tracking with live pub-sub sync (no page reload).
+- **Direct Payment Verification Queue**: Review direct Cash & UPI payments with UTR/transaction references. Admin actions: `Verify`, `Dispute`, or `Refund`. Direct payments remain `Reported / Pending Verification` until confirmed.
+- **User & Supplier Directory**: Manage plant suppliers, delivery drivers, and customers; toggle accounts active/suspended; switch user roles.
+- **Platform Subscriptions Management**: Track and manage supplier SaaS subscriptions (`Free Starter ₹0`, `Pro Flow ₹999/mo`, `Enterprise Aqua ₹2,499/mo`) with renewal actions.
+- **Financial & Delivery Reports**: **Strict Separation of Funds** (PRD Section 10): separates water order value (retained 100% by suppliers via direct payment) from Aqua Connect platform SaaS subscription licensing revenue. Includes CSV report exports.
+- **Tamper-Evident Audit Logs**: Complete chronological history of orders created, status changes, direct payments recorded, and admin verifications.
 
 ---
 
@@ -183,33 +198,78 @@ notifications/{notificationId}
   ├── type: string
   ├── isRead: boolean
   └── createdAt: timestamp
+
+payments/{paymentId}
+  ├── orderId: string
+  ├── supplierId: string
+  ├── customerId: string
+  ├── amount: number
+  ├── method: string ("Cash" | "UPI")
+  ├── reference: string (UTR / bank transaction ref)
+  ├── status: string ("Reported" | "Verified" | "Disputed" | "Refunded")
+  ├── recordedBy: map<{uid, name, role}>
+  ├── verifiedBy: map<{uid, name, role}>
+  ├── paidAt: timestamp
+  └── verifiedAt: timestamp
+
+supplier_subscriptions/{subscriptionId}
+  ├── supplierId: string
+  ├── planId: string ("plan_starter" | "plan_pro" | "plan_enterprise")
+  ├── planName: string
+  ├── amount: number
+  ├── status: string ("Active" | "Expired")
+  ├── startDate: timestamp
+  └── endDate: timestamp
+
+audit_logs/{logId}
+  ├── actor: map<{uid, name, role}>
+  ├── action: string ("ORDER_CREATED" | "DIRECT_PAYMENT_RECORDED" | "PAYMENT_VERIFIED" | "PAYMENT_DISPUTED" | "SUBSCRIPTION_RENEWED")
+  ├── entityType: string
+  ├── entityId: string
+  ├── metadata: map
+  └── timestamp: timestamp
 ```
 
 ---
 
 ## 🔒 Security Rules (`firestore.rules`)
-- **Role Authorization**: Customers only read/write their own orders; Suppliers only read/write their business plant data.
-- **Dashboard Shield**: Customers cannot read supplier analytics, inventory, or driver allocations.
-- **Audit Preservation**: Direct client deletions of users and historical audit logs are forbidden.
+- **Admin & Super Admin**: Full platform oversight, direct payment verification, subscription management, and audit log inspection.
+- **Supplier Isolation**: Suppliers only read and manage orders assigned to their plant. Cross-supplier access is strictly blocked.
+- **Customer Privacy**: Customers can only view their own delivery orders and payment receipts.
+- **Audit Immutability**: Historical audit log entries cannot be modified or deleted.
 
 ---
 
-## 🚀 How to Run the Project
+## 🚀 How to Run & Test the Project
 
-### 1. Web Application (React + Vite)
+### 1. Run Automated PRD Verification Suite
+Runs the 31-test integration suite verifying authoritative pricing, strict supplier isolation, direct payments, partial payments, and revenue separation:
+```bash
+npm run test:prd
+```
+
+### 2. Web Application (React + Vite)
 ```bash
 # Install dependencies
 npm install
 
-# Start development server
+# Start development server (http://localhost:3000)
 npm run dev
 
-# Build production bundle
+# Optimized production build (with modular chunk splitting)
 npm run build
 ```
-Open **`http://localhost:3000`** in your browser.
 
-### 2. Mobile Application (Flutter)
+### 3. Deploy to Firebase (Hosting & Firestore)
+```bash
+# Deploy Web Hosting only
+npm run deploy:web
+
+# Deploy Hosting and Firestore Security Rules
+npm run deploy:all
+```
+
+### 4. Mobile Application (Flutter)
 ```bash
 cd aquaconnect_mobile
 
@@ -220,8 +280,8 @@ flutter pub get
 flutter run
 ```
 
-### 3. Connecting to Live Firebase (Optional)
-AquaConnect runs **out of the box** with instant real-time sync and pre-populated water delivery seed data. To connect to your actual Firebase project:
+### 5. Connecting to Live Firebase (Optional)
+AquaConnect runs **out of the box** with instant real-time sync and pre-populated seed data. To connect to your actual Firebase project:
 1. Create a project at [Firebase Console](https://console.firebase.google.com).
 2. Enable **Authentication** (Email/Password) and **Cloud Firestore**.
 3. Create a `.env.local` file in the root directory:

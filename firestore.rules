@@ -5,12 +5,17 @@ service cloud.firestore {
 
     // Users Collection
     match /users/{userId} {
-      allow read, write: if true;
+      allow read, write, delete: if true;
     }
 
     // Suppliers Collection
     match /suppliers/{supplierId} {
-      allow read, write: if true;
+      allow read, write, delete: if true;
+    }
+
+    // Deleted Accounts Collection
+    match /deleted_accounts/{deletedId} {
+      allow read, write, delete: if true;
     }
 
     // Products Collection
@@ -35,6 +40,31 @@ service cloud.firestore {
 
     // Payments Collection
     match /payments/{paymentId} {
+      allow read, write, delete: if true;
+    }
+
+    // Audit Logs Collection
+    match /audit_logs/{logId} {
+      allow read, write, delete: if true;
+    }
+
+    // Supplier Subscriptions Collection
+    match /supplier_subscriptions/{subscriptionId} {
+      allow read, write, delete: if true;
+    }
+
+    // Subscription Plans Collection
+    match /subscription_plans/{planId} {
+      allow read, write, delete: if true;
+    }
+
+    // Order Status History Collection
+    match /order_status_history/{historyId} {
+      allow read, write, delete: if true;
+    }
+
+    // Payment Verification History Collection
+    match /payment_verification_history/{verificationId} {
       allow read, write, delete: if true;
     }
 

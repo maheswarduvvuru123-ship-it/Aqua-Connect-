@@ -20,7 +20,13 @@ import StatusBadge from '../../components/StatusBadge';
 import EmptyState from '../../components/EmptyState';
 import DeliveryAssignModal from '../../components/DeliveryAssignModal';
 import InvoiceModal from '../../components/InvoiceModal';
-import { getCollection, updateOrderStatus, subscribeToData } from '../../services/firestoreData';
+import { 
+  getCollection, 
+  updateOrderStatus, 
+  subscribeToData, 
+  calculateOutstandingBalance, 
+  checkSupplierSubscriptionValid 
+} from '../../services/firestoreData';
 import { formatCurrency, formatDateTime } from '../../utils/formatters';
 import { useNotifications } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
@@ -43,7 +49,9 @@ const SupplierDashboard = ({ onNavigateTab }) => {
       currentUser?.uid,
       currentUser?.address,
       currentUser?.city,
-      currentUser?.deliveryAreas || []
+      currentUser?.deliveryAreas || [],
+      currentUser?.email,
+      currentUser?.phone
     );
     const filteredCustomers = filterCustomersForSupplier(
       rawCustomers,
@@ -80,8 +88,11 @@ const SupplierDashboard = ({ onNavigateTab }) => {
     .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
   const pendingPaymentsTotal = orders
-    .filter(o => o.paymentStatus === 'Pending' && o.orderStatus !== 'Cancelled')
-    .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    .filter(o => o.orderStatus !== 'Cancelled')
+    .reduce((sum, o) => {
+      const balance = calculateOutstandingBalance(o.orderId);
+      return sum + (balance.verifiedBalance || 0);
+    }, 0);
 
   // Recent 6 orders
   const recentOrders = [...orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 6);
@@ -97,6 +108,50 @@ const SupplierDashboard = ({ onNavigateTab }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Expired Subscription Warning Banner */}
+      {checkSupplierSubscriptionValid(currentUser?.uid).isExpired && (
+        <div 
+          style={{
+            background: 'linear-gradient(135deg, #7f1d1d 0%, #b91c1c 100%)',
+            borderRadius: '16px',
+            padding: '16px 20px',
+            color: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 8px 20px -4px rgba(185, 28, 28, 0.45)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '1.6rem' }}>⚠️</span>
+            <div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 800 }}>
+                1-Day Free Trial Expired — Plan Upgrade Required
+              </div>
+              <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
+                Your trial period has concluded. Upgrade your subscription plan in Settings to continue fulfilling customer orders.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => onNavigateTab('profile')}
+            style={{
+              backgroundColor: '#ffffff',
+              color: '#b91c1c',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px 16px',
+              fontWeight: 800,
+              fontSize: '0.82rem',
+              cursor: 'pointer'
+            }}
+          >
+            ⚡ Upgrade Plan in Settings →
+          </button>
+        </div>
+      )}
       {/* Top Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
@@ -259,10 +314,10 @@ const SupplierDashboard = ({ onNavigateTab }) => {
                         style={{
                           fontSize: '0.72rem',
                           fontWeight: 600,
-                          color: order.paymentStatus === 'Paid' ? '#059669' : '#d97706'
+                          color: (order.paymentStatus === 'Paid' || order.paymentMethod === 'UPI' || order.paymentStatus === 'Pending Verification') ? '#059669' : '#d97706'
                         }}
                       >
-                        {order.paymentMethod} ({order.paymentStatus})
+                        {order.paymentMethod} ({(order.paymentStatus === 'Paid' || order.paymentMethod === 'UPI' || order.paymentStatus === 'Pending Verification') ? 'Paid' : order.paymentStatus})
                       </span>
                     </div>
 

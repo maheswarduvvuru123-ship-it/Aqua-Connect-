@@ -1396,7 +1396,7 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
                             child: TextField(
                               controller: _zoneInputCtrl,
                               decoration: const InputDecoration(
-                                hintText: 'Type area / colony (e.g. Vaddagandla, NH40, Allagadda, Madhapur)',
+                                hintText: 'Type area / colony (e.g. Madhapur, Hitec City, Jubilee Hills)',
                                 contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                 border: OutlineInputBorder(),
                               ),

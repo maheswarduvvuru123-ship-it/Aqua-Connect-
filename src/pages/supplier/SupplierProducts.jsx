@@ -10,7 +10,7 @@ import {
   TrendingUp,
   AlertTriangle
 } from 'lucide-react';
-import ProductModal from '../../components/ProductModal';
+import ProductModal, { STANDARD_WATER_TEMPLATES } from '../../components/ProductModal';
 import EmptyState from '../../components/EmptyState';
 import { getCollection, updateDoc, deleteDoc, subscribeToData } from '../../services/firestoreData';
 import { formatCurrency } from '../../utils/formatters';
@@ -23,6 +23,7 @@ const SupplierProducts = () => {
   const [products, setProducts] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
 
   const loadProducts = () => {
     setProducts(getCollection('products'));
@@ -53,13 +54,15 @@ const SupplierProducts = () => {
     showToast(`Stock updated for ${p.name}: ${newStock} units available`, 'info');
   };
 
-  const openAddModal = () => {
+  const openAddModal = (template = null) => {
     setEditingProduct(null);
+    setSelectedTemplate(template);
     setModalOpen(true);
   };
 
   const openEditModal = (product) => {
     setEditingProduct(product);
+    setSelectedTemplate(null);
     setModalOpen(true);
   };
 
@@ -84,13 +87,109 @@ const SupplierProducts = () => {
             Water Products Catalog
           </h2>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-            Manage 20L jars, 10L cans, water bottle packs, prices, and stock inventory.
+            Manage 20L normal water cans, cool cans, water packets, bottled packs, prices, and stock inventory.
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={openAddModal}>
-          <Plus size={18} /> Add New Water Product
+        <button className="btn btn-primary" onClick={() => openAddModal(null)}>
+          <Plus size={18} /> Add Custom Product
         </button>
+      </div>
+
+      {/* 1-Click Common Water Items Quick Add Banner */}
+      <div className="glass-card" style={{ padding: '18px 20px', backgroundColor: '#f8fafc', border: '1.5px solid #bae6fd' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0369a1', margin: 0 }}>
+              ⚡ Quick Add Standard Water Items (1-Click Template)
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: '#475569', margin: '2px 0 0 0' }}>
+              Select any of these common water items to instantly add or configure them in your catalog.
+            </p>
+          </div>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#e0f2fe', color: '#0284c7', padding: '4px 10px', borderRadius: '12px' }}>
+            High Resolution Images Included
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '12px' }}>
+          {STANDARD_WATER_TEMPLATES.map((tpl) => {
+            const alreadyExists = products.some(p => p.name?.toLowerCase().includes(tpl.name.toLowerCase().slice(0, 15)));
+
+            return (
+              <div 
+                key={tpl.id}
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  padding: '10px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.03)'
+                }}
+              >
+                <div style={{ position: 'relative', width: '100%', height: '110px', borderRadius: '8px', overflow: 'hidden', marginBottom: '8px' }}>
+                  <img 
+                    src={tpl.image} 
+                    alt={tpl.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  <span 
+                    style={{ 
+                      position: 'absolute', 
+                      bottom: '6px', 
+                      left: '6px', 
+                      backgroundColor: 'rgba(15, 23, 42, 0.75)', 
+                      color: '#ffffff', 
+                      fontSize: '0.68rem', 
+                      fontWeight: 700, 
+                      padding: '2px 6px', 
+                      borderRadius: '4px',
+                      backdropFilter: 'blur(2px)'
+                    }}
+                  >
+                    {tpl.unit}
+                  </span>
+                </div>
+
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f172a', lineHeight: 1.25 }}>
+                    {tpl.name}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#0284c7', fontWeight: 800, marginTop: '4px' }}>
+                    Rec. Price: ₹{tpl.price}
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '10px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{
+                      width: '100%',
+                      padding: '6px',
+                      fontSize: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      backgroundColor: alreadyExists ? '#f0fdf4' : '#f0f9ff',
+                      color: alreadyExists ? '#166534' : '#0369a1',
+                      borderColor: alreadyExists ? '#bbf7d0' : '#bae6fd',
+                      fontWeight: 700
+                    }}
+                    onClick={() => openAddModal(tpl)}
+                  >
+                    {alreadyExists ? <Check size={14} /> : <Plus size={14} />}
+                    {alreadyExists ? 'Add Another / Edit' : 'Add to Catalog'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Products Grid */}
@@ -98,9 +197,9 @@ const SupplierProducts = () => {
         <EmptyState 
           icon={Layers}
           title="No products configured"
-          description="Click Add New Water Product to add 20L cans, bottles, or dispensers."
+          description="Click Add New Water Product or choose a template above to add 20L cans, bottles, or packets."
           actionText="Add Product"
-          onAction={openAddModal}
+          onAction={() => openAddModal(null)}
         />
       ) : (
         <div 
@@ -256,8 +355,10 @@ const SupplierProducts = () => {
           onClose={() => {
             setModalOpen(false);
             setEditingProduct(null);
+            setSelectedTemplate(null);
           }}
           product={editingProduct}
+          initialTemplate={selectedTemplate}
           supplierId={currentUser?.uid || 'primary_supplier'}
         />
       )}

@@ -2,6 +2,7 @@ import React from 'react';
 import Modal from './Modal';
 import { Printer, Droplets, CheckCircle2, Download } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
+import { calculateOutstandingBalance, getOrderPayments } from '../services/firestoreData';
 
 const InvoiceModal = ({ isOpen, onClose, order, supplier }) => {
   if (!order) return null;
@@ -124,22 +125,67 @@ const InvoiceModal = ({ isOpen, onClose, order, supplier }) => {
         </table>
 
         {/* Calculation summary */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-          <div style={{ width: '240px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
-              <span style={{ color: '#64748b' }}>Subtotal:</span>
-              <span style={{ fontWeight: 600 }}>{formatCurrency(order.totalAmount)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
-              <span style={{ color: '#64748b' }}>Delivery Fee:</span>
-              <span style={{ color: '#059669', fontWeight: 600 }}>FREE</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '2px solid #0f172a', marginTop: '6px', fontSize: '1.05rem', fontWeight: 800 }}>
-              <span>Total Payable:</span>
-              <span style={{ color: '#0284c7' }}>{formatCurrency(order.totalAmount)}</span>
-            </div>
-          </div>
-        </div>
+        {(() => {
+          const balanceInfo = calculateOutstandingBalance(order.orderId);
+          const payments = getOrderPayments(order.orderId);
+
+          return (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+                <div style={{ width: '260px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
+                    <span style={{ color: '#64748b' }}>Subtotal:</span>
+                    <span style={{ fontWeight: 600 }}>{formatCurrency(order.totalAmount)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
+                    <span style={{ color: '#64748b' }}>Delivery Fee:</span>
+                    <span style={{ color: '#059669', fontWeight: 600 }}>FREE</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '2px solid #0f172a', marginTop: '6px', fontSize: '1.05rem', fontWeight: 800 }}>
+                    <span>Total Bill:</span>
+                    <span style={{ color: '#0284c7' }}>{formatCurrency(order.totalAmount)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.85rem' }}>
+                    <span style={{ color: '#059669', fontWeight: 600 }}>Verified Paid:</span>
+                    <span style={{ color: '#059669', fontWeight: 700 }}>{formatCurrency(balanceInfo.totalVerifiedPaid)}</span>
+                  </div>
+                  {balanceInfo.totalPendingVerification > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.82rem', color: '#d97706' }}>
+                      <span>Pending Verification:</span>
+                      <span style={{ fontWeight: 600 }}>{formatCurrency(balanceInfo.totalPendingVerification)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px dashed #cbd5e1', marginTop: '4px', fontSize: '0.95rem', fontWeight: 800 }}>
+                    <span style={{ color: balanceInfo.outstandingBalance > 0 ? '#dc2626' : '#166534' }}>Balance Outstanding:</span>
+                    <span style={{ color: balanceInfo.outstandingBalance > 0 ? '#dc2626' : '#166534' }}>{formatCurrency(balanceInfo.outstandingBalance)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Direct Payments Breakdown on Invoice */}
+              {payments.length > 0 && (
+                <div style={{ marginTop: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    Direct Payment Records ({payments.length})
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {payments.map((p, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', padding: '6px 8px', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
+                        <div>
+                          <strong>{p.method}</strong>: {formatCurrency(p.amount)}
+                          {p.referenceNumber && <span style={{ color: '#0284c7', marginLeft: '8px', fontFamily: 'monospace' }}>Ref: {p.referenceNumber}</span>}
+                        </div>
+                        <span style={{ fontWeight: 700, color: p.verificationStatus === 'Verified' ? '#166534' : p.verificationStatus === 'Disputed' ? '#991b1b' : '#b45309' }}>
+                          {p.verificationStatus}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {/* Returnable can note */}
         <div 

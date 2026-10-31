@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test:admin": "node scripts/test_prd_admin.js",
+    "test:prd": "node scripts/test_prd_phase4.js",
     "firebase:login": "firebase login",
     "firebase:deploy": "firebase deploy --only firestore",
     "deploy:web": "vite build && firebase deploy --only hosting",

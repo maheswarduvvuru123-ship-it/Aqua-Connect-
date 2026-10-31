@@ -22,23 +22,13 @@ Future<void> main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
 
-    // 1. Firebase Crashlytics Setup
-    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
-    await FirebaseCrashlytics.instance.setCustomKey('app_version', '1.0.0');
-    await FirebaseCrashlytics.instance.setCustomKey('release_version', 'v1.0.0');
-    await FirebaseCrashlytics.instance.setCustomKey('environment', 'production');
-
-    // Forward unhandled Flutter framework errors to Crashlytics
-    FlutterError.onError = (FlutterErrorDetails details) {
-      FlutterError.presentError(details);
-      FirebaseCrashlytics.instance.recordFlutterFatalError(details);
-    };
-
-    // Forward unhandled asynchronous errors to Crashlytics
-    PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true; // Mark handled so app doesn't abruptly crash on older devices
-    };
+    // 1. Firebase Crashlytics Setup (Visual/Mock only - backend collection disabled per user specification)
+    try {
+      await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(false);
+      await FirebaseCrashlytics.instance.setCustomKey('app_version', '1.0.0');
+      await FirebaseCrashlytics.instance.setCustomKey('release_version', 'v1.0.0');
+      await FirebaseCrashlytics.instance.setCustomKey('environment', 'client-ui-presentation');
+    } catch (_) {}
 
     // 2. Firebase Performance Monitoring Setup
     final performance = FirebasePerformance.instance;
@@ -117,7 +107,7 @@ class AquaConnectApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'AquaConnect',
+      title: 'Aqua connect',
       debugShowCheckedModeBanner: false,
       theme: AquaTheme.lightTheme,
       navigatorObservers: <NavigatorObserver>[observer],

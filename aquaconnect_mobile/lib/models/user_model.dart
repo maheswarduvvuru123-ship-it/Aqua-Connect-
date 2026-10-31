@@ -13,6 +13,8 @@ class UserModel {
   final String? openingTime;
   final String? closingTime;
   final bool isOpenToday;
+  final String? upiId;
+  final String? upiPhoneNumber;
   final DateTime createdAt;
 
   UserModel({
@@ -30,6 +32,8 @@ class UserModel {
     this.openingTime,
     this.closingTime,
     this.isOpenToday = true,
+    this.upiId,
+    this.upiPhoneNumber,
     required this.createdAt,
   });
 
@@ -97,6 +101,8 @@ class UserModel {
       openingTime: json['openingTime']?.toString(),
       closingTime: json['closingTime']?.toString(),
       isOpenToday: json['isOpenToday'] is bool ? json['isOpenToday'] : true,
+      upiId: json['upiId']?.toString() ?? (json['role'] == 'supplier' ? '${(json['name']?.toString() ?? "supplier").replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase()}@upi' : null),
+      upiPhoneNumber: json['upiPhoneNumber']?.toString() ?? json['phone']?.toString(),
       createdAt: parsedCreatedAt,
     );
   }
@@ -117,6 +123,8 @@ class UserModel {
       'openingTime': openingTime ?? effectiveOpeningTime,
       'closingTime': closingTime ?? effectiveClosingTime,
       'isOpenToday': isOpenToday,
+      'upiId': upiId,
+      'upiPhoneNumber': upiPhoneNumber,
       'createdAt': createdAt.toIso8601String(),
     };
   }

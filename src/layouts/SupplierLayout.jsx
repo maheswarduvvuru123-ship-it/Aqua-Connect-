@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import SupplierDashboard from '../pages/supplier/SupplierDashboard';
@@ -12,6 +12,16 @@ import SupplierProfile from '../pages/supplier/SupplierProfile';
 
 const SupplierLayout = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  useEffect(() => {
+    const handleNav = (e) => {
+      if (e.detail) {
+        setActiveTab(e.detail);
+      }
+    };
+    window.addEventListener('navigate-supplier-tab', handleNav);
+    return () => window.removeEventListener('navigate-supplier-tab', handleNav);
+  }, []);
 
   const renderContent = () => {
     switch (activeTab) {

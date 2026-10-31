@@ -16,16 +16,19 @@ import {
 } from 'lucide-react';
 
 const POPULAR_LOCALITIES = [
+  { name: 'Vaddagandla (NH40)', city: 'Allagadda, Nandyal', lat: 15.1528, lng: 78.5085, pincode: '518112' },
+  { name: 'Allagadda', city: 'Nandyal', lat: 15.1325, lng: 78.5126, pincode: '518543' },
   { name: 'Madhapur', city: 'Hyderabad', lat: 17.4483, lng: 78.3915, pincode: '500081' },
-  { name: 'Hitec City', city: 'Hyderabad', lat: 17.4435, lng: 78.3772, pincode: '500081' },
   { name: 'Gachibowli', city: 'Hyderabad', lat: 17.4401, lng: 78.3489, pincode: '500032' },
+  { name: 'Hitec City', city: 'Hyderabad', lat: 17.4435, lng: 78.3772, pincode: '500081' },
   { name: 'Kondapur', city: 'Hyderabad', lat: 17.4699, lng: 78.3578, pincode: '500084' },
-  { name: 'Jubilee Hills', city: 'Hyderabad', lat: 17.4319, lng: 78.4073, pincode: '500033' },
-  { name: 'Banjara Hills', city: 'Hyderabad', lat: 17.4156, lng: 78.4354, pincode: '500034' },
   { name: 'Kukatpally', city: 'Hyderabad', lat: 17.4875, lng: 78.4039, pincode: '500072' },
-  { name: 'Manikonda', city: 'Hyderabad', lat: 17.3995, lng: 78.3888, pincode: '500089' },
-  { name: 'Financial District', city: 'Hyderabad', lat: 17.4168, lng: 78.3428, pincode: '500075' },
-  { name: 'Begumpet', city: 'Hyderabad', lat: 17.4448, lng: 78.4665, pincode: '500016' }
+  { name: 'Banjara Hills', city: 'Hyderabad', lat: 17.4156, lng: 78.4354, pincode: '500034' },
+  { name: 'Jubilee Hills', city: 'Hyderabad', lat: 17.4319, lng: 78.4073, pincode: '500033' },
+  { name: 'Kurnool City', city: 'Kurnool', lat: 15.8281, lng: 78.0373, pincode: '518002' },
+  { name: 'Nandyal Town', city: 'Nandyal', lat: 15.4870, lng: 78.4810, pincode: '518501' },
+  { name: 'Vijayawada', city: 'Vijayawada', lat: 16.5062, lng: 80.6480, pincode: '520001' },
+  { name: 'Tirupati', city: 'Tirupati', lat: 13.6288, lng: 79.4192, pincode: '517501' }
 ];
 
 export const reverseGeocodeCoords = async (lat, lng) => {
@@ -54,8 +57,10 @@ export const reverseGeocodeCoords = async (lat, lng) => {
         postcode
       ].filter(Boolean);
 
+      const formatted = parts.join(', ') || data.display_name?.split(',').slice(0, 4).join(',') || `GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
       return {
-        formattedAddress: parts.join(', ') || data.display_name?.split(',').slice(0, 4).join(',') || `GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+        formattedAddress: formatted,
         locality: locality || street || city || 'Current Location',
         city: city,
         postcode: postcode,
@@ -80,8 +85,10 @@ export const reverseGeocodeCoords = async (lat, lng) => {
       const state = bdcData.principalSubdivision || '';
 
       const parts = [locality, city, state, postcode].filter(Boolean);
+      const formatted = parts.join(', ') || `GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
       return {
-        formattedAddress: parts.join(', ') || `GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+        formattedAddress: formatted,
         locality: locality || city || 'Detected Area',
         city: city,
         postcode: postcode,
@@ -111,21 +118,146 @@ const ZomatoLocationPickerModal = ({
   role = 'customer' 
 }) => {
   const [selectedLocality, setSelectedLocality] = useState(POPULAR_LOCALITIES[0]);
-  const [coords, setCoords] = useState({ lat: 17.4483, lng: 78.3915 });
+  const [coords, setCoords] = useState({ lat: POPULAR_LOCALITIES[0].lat, lng: POPULAR_LOCALITIES[0].lng });
+  const [zoomDelta, setZoomDelta] = useState(0.015);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLocatingGPS, setIsLocatingGPS] = useState(false);
   const [doorFlatDetails, setDoorFlatDetails] = useState('');
-  const [detectedAddress, setDetectedAddress] = useState(currentAddress || 'Madhapur Main Rd, Hitec City Zone, Hyderabad, 500081');
+  const [detectedAddress, setDetectedAddress] = useState(
+    currentAddress
+      ? currentAddress
+      : `${POPULAR_LOCALITIES[0].name}, ${POPULAR_LOCALITIES[0].city} - ${POPULAR_LOCALITIES[0].pincode}`
+  );
   const [statusMessage, setStatusMessage] = useState('');
   const searchTimeoutRef = useRef(null);
 
+  // Set initial address
   useEffect(() => {
-    if (isOpen && currentAddress) {
-      setDetectedAddress(currentAddress);
+    if (isOpen) {
+      if (currentAddress) {
+        setDetectedAddress(currentAddress);
+        handleLocateTypedAddress(currentAddress);
+      } else {
+        const fallback = POPULAR_LOCALITIES[0];
+        setDetectedAddress(`${fallback.name}, ${fallback.city} - ${fallback.pincode}`);
+        setCoords({ lat: fallback.lat, lng: fallback.lng });
+        setSelectedLocality(fallback);
+      }
     }
   }, [isOpen, currentAddress]);
+
+  const handleZoomIn = () => setZoomDelta(prev => Math.max(0.003, prev / 1.6));
+  const handleZoomOut = () => setZoomDelta(prev => Math.min(0.08, prev * 1.6));
+
+  const handlePan = (dLat, dLng) => {
+    setCoords(prev => {
+      const next = { lat: prev.lat + dLat, lng: prev.lng + dLng };
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = setTimeout(async () => {
+        const res = await reverseGeocodeCoords(next.lat, next.lng);
+        if (res && res.formattedAddress) {
+          setDetectedAddress(res.formattedAddress);
+          setSelectedLocality({
+            name: res.locality,
+            city: res.city,
+            lat: next.lat,
+            lng: next.lng,
+            pincode: res.postcode
+          });
+          setStatusMessage(`📍 Map position: ${res.locality}, ${res.city}`);
+        }
+      }, 400);
+      return next;
+    });
+  };
+
+  const handleLocateTypedAddress = async (addrToLocate) => {
+    const q = (addrToLocate || detectedAddress || '').trim();
+    if (!q) return;
+    setStatusMessage('Searching map coordinates...');
+
+    const lowerQ = q.toLowerCase();
+
+    // 1. Instant precision match for Vaddagandla / NH40 / 518112
+    if (lowerQ.includes('vaddagandla') || lowerQ.includes('518112')) {
+      const vadLoc = POPULAR_LOCALITIES[0];
+      setCoords({ lat: vadLoc.lat, lng: vadLoc.lng });
+      setSelectedLocality(vadLoc);
+      setStatusMessage(`📍 Map centered on: ${vadLoc.name}, ${vadLoc.city}`);
+      return;
+    }
+
+    // 2. Instant precision match for Allagadda / 518543
+    if (lowerQ.includes('allagadda') || lowerQ.includes('518543')) {
+      const allaLoc = POPULAR_LOCALITIES[1];
+      setCoords({ lat: allaLoc.lat, lng: allaLoc.lng });
+      setSelectedLocality(allaLoc);
+      setStatusMessage(`📍 Map centered on: ${allaLoc.name}, ${allaLoc.city}`);
+      return;
+    }
+
+    // 3. Check popular localities list
+    const directPopMatch = POPULAR_LOCALITIES.find(loc => {
+      const locKey = loc.name.toLowerCase().split(' ')[0];
+      return lowerQ.includes(locKey) || (loc.pincode && lowerQ.includes(loc.pincode));
+    });
+
+    if (directPopMatch) {
+      setCoords({ lat: directPopMatch.lat, lng: directPopMatch.lng });
+      setSelectedLocality(directPopMatch);
+      setStatusMessage(`📍 Map centered on: ${directPopMatch.name}, ${directPopMatch.city}`);
+      return;
+    }
+
+    // 4. Nominatim search with progressive simplification
+    try {
+      const searchTerms = [
+        q,
+        ...q.split(',').map(s => s.trim()).filter(s => s.length > 2)
+      ];
+
+      for (const term of searchTerms) {
+        const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(term)}&countrycodes=in&addressdetails=1&limit=1`;
+        const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.length > 0) {
+            const item = data[0];
+            const lat = parseFloat(item.lat);
+            const lon = parseFloat(item.lon);
+            setCoords({ lat, lng: lon });
+            const addr = item.address || {};
+            const city = addr.city || addr.town || addr.village || addr.county || 'Local Area';
+            const postcode = addr.postcode || '';
+            const locality = addr.suburb || addr.neighbourhood || addr.road || item.name || term;
+            setSelectedLocality({
+              name: locality,
+              city,
+              lat,
+              lng: lon,
+              pincode: postcode
+            });
+            setStatusMessage(`📍 Map centered on: ${locality}, ${city}`);
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Geocode lookup error:', e);
+    }
+  };
+
+  const handleAddressInputChange = (val) => {
+    setDetectedAddress(val);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    if (val.trim().length >= 3) {
+      searchTimeoutRef.current = setTimeout(() => {
+        handleLocateTypedAddress(val);
+      }, 400);
+    }
+  };
 
   // Handle GPS detection
   const handleDetectGPS = () => {
@@ -135,15 +267,14 @@ const ZomatoLocationPickerModal = ({
     }
 
     setIsLocatingGPS(true);
-    setStatusMessage('Acquiring high-accuracy satellite GPS coordinates...');
+    setStatusMessage('Acquiring satellite GPS coordinates...');
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
-        setCoords({ lat: latitude, lng: longitude });
-
         const result = await reverseGeocodeCoords(latitude, longitude);
-        if (result) {
+        if (result && result.formattedAddress) {
+          setCoords({ lat: latitude, lng: longitude });
           setDetectedAddress(result.formattedAddress);
           setSelectedLocality({
             name: result.locality,
@@ -154,18 +285,18 @@ const ZomatoLocationPickerModal = ({
           });
           setStatusMessage(`📍 Location auto-detected: ${result.locality}, ${result.city}`);
         } else {
-          setDetectedAddress(`GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}, Hyderabad`);
-          setStatusMessage('Location coordinates acquired.');
+          setCoords({ lat: latitude, lng: longitude });
+          setDetectedAddress(`GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+          setStatusMessage(`📍 GPS coordinates acquired: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
         }
         setIsLocatingGPS(false);
       },
       (err) => {
         console.warn('GPS error:', err);
-        // Fallback to default prominent locality if permission denied or error
         const fallback = POPULAR_LOCALITIES[0];
         setSelectedLocality(fallback);
         setCoords({ lat: fallback.lat, lng: fallback.lng });
-        setDetectedAddress(`${fallback.name}, ${fallback.city}, ${fallback.pincode}`);
+        setDetectedAddress(`${fallback.name}, ${fallback.city} - ${fallback.pincode}`);
         setStatusMessage('GPS permission skipped. Using high-precision map selection.');
         setIsLocatingGPS(false);
       },
@@ -463,14 +594,102 @@ const ZomatoLocationPickerModal = ({
           >
             {/* OpenStreetMap dynamic static/interactive iframe */}
             <iframe
+              key={`${coords.lat.toFixed(4)}_${coords.lng.toFixed(4)}_${zoomDelta}`}
               title="Locality Map"
               width="100%"
               height="100%"
               frameBorder="0"
               scrolling="no"
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - 0.015}%2C${coords.lat - 0.015}%2C${coords.lng + 0.015}%2C${coords.lat + 0.015}&layer=mapnik&marker=${coords.lat}%2C${coords.lng}`}
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - zoomDelta}%2C${coords.lat - zoomDelta}%2C${coords.lng + zoomDelta}%2C${coords.lat + zoomDelta}&layer=mapnik&marker=${coords.lat}%2C${coords.lng}`}
               style={{ border: 0, pointerEvents: 'auto' }}
             />
+
+            {/* Map Pan Controls */}
+            <div 
+              style={{ 
+                position: 'absolute', 
+                top: '8px', 
+                left: '8px', 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(3, 22px)', 
+                gap: '2px', 
+                zIndex: 10, 
+                backgroundColor: 'rgba(255,255,255,0.9)', 
+                padding: '3px', 
+                borderRadius: '8px', 
+                boxShadow: '0 2px 6px rgba(0,0,0,0.15)' 
+              }}
+            >
+              <div />
+              <button 
+                type="button" 
+                onClick={() => handlePan(zoomDelta * 0.4, 0)} 
+                title="Pan North" 
+                style={{ width: '22px', height: '22px', borderRadius: '4px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', fontSize: '9px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+              >
+                ▲
+              </button>
+              <div />
+              <button 
+                type="button" 
+                onClick={() => handlePan(0, -zoomDelta * 0.4)} 
+                title="Pan West" 
+                style={{ width: '22px', height: '22px', borderRadius: '4px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', fontSize: '9px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+              >
+                ◀
+              </button>
+              <div style={{ width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#64748b' }}>
+                📍
+              </div>
+              <button 
+                type="button" 
+                onClick={() => handlePan(0, zoomDelta * 0.4)} 
+                title="Pan East" 
+                style={{ width: '22px', height: '22px', borderRadius: '4px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', fontSize: '9px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+              >
+                ▶
+              </button>
+              <div />
+              <button 
+                type="button" 
+                onClick={() => handlePan(-zoomDelta * 0.4, 0)} 
+                title="Pan South" 
+                style={{ width: '22px', height: '22px', borderRadius: '4px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', fontSize: '9px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+              >
+                ▼
+              </button>
+              <div />
+            </div>
+
+            {/* Map Zoom Controls */}
+            <div 
+              style={{ 
+                position: 'absolute', 
+                top: '8px', 
+                right: '8px', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '4px', 
+                zIndex: 10 
+              }}
+            >
+              <button 
+                type="button" 
+                onClick={handleZoomIn} 
+                title="Zoom In"
+                style={{ width: '26px', height: '26px', borderRadius: '6px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', fontWeight: 800, fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)', padding: 0 }}
+              >
+                +
+              </button>
+              <button 
+                type="button" 
+                onClick={handleZoomOut} 
+                title="Zoom Out"
+                style={{ width: '26px', height: '26px', borderRadius: '6px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', fontWeight: 800, fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)', padding: 0 }}
+              >
+                −
+              </button>
+            </div>
 
             {/* Bouncing Pin Overlay (Zomato Exact Center Pin) */}
             <div 
@@ -535,11 +754,44 @@ const ZomatoLocationPickerModal = ({
             </div>
           </div>
 
+          {/* Quick Select Locality Chips */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b' }}>
+              ⚡ Quick Select Nearby Town / City:
+            </span>
+            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+              {POPULAR_LOCALITIES.map((loc, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setCoords({ lat: loc.lat, lng: loc.lng });
+                    setSelectedLocality(loc);
+                    setDetectedAddress(`${loc.name}, ${loc.city} - ${loc.pincode}`);
+                    setStatusMessage(`📍 Selected: ${loc.name}, ${loc.city}`);
+                  }}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '16px',
+                    border: selectedLocality.name === loc.name ? '1px solid #0284c7' : '1px solid #cbd5e1',
+                    backgroundColor: selectedLocality.name === loc.name ? '#e0f2fe' : '#ffffff',
+                    color: selectedLocality.name === loc.name ? '#0369a1' : '#475569',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {loc.name} ({loc.city})
+                </button>
+              ))}
+            </div>
+          </div>
 
-
-          {/* Form details: Flat/Door/Building info */}
-          <div style={{ backgroundColor: '#f8fafc', padding: '12px 14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+          {/* Form details: Flat/Door/Building info & Editable Locality */}
+          <div style={{ backgroundColor: '#f8fafc', padding: '12px 14px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
                 Address Preview & Landmark:
               </span>
@@ -548,24 +800,94 @@ const ZomatoLocationPickerModal = ({
               </span>
             </div>
 
-            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>
-              📍 {detectedAddress}
+            {/* Editable Street / Area / Locality Input with Center Map and Clear buttons */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                <label style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
+                  📍 Locality / Area / Street (Type your exact area):
+                </label>
+                {detectedAddress && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDetectedAddress('');
+                      setStatusMessage('Address cleared. Type your city, area, or street.');
+                    }}
+                    style={{
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      color: '#ef4444',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                  >
+                    ✕ Clear Address
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type="text"
+                  value={detectedAddress}
+                  onChange={(e) => handleAddressInputChange(e.target.value)}
+                  placeholder="e.g. Madhapur, Kurnool, Nandyal, Benz Circle..."
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #94a3b8',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    backgroundColor: '#ffffff'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleLocateTypedAddress(detectedAddress)}
+                  title="Center map on this locality"
+                  style={{
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #0284c7',
+                    backgroundColor: '#0284c7',
+                    color: '#ffffff',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <MapPin size={14} />
+                  Center Map
+                </button>
+              </div>
             </div>
 
-            <input
-              type="text"
-              value={doorFlatDetails}
-              onChange={(e) => setDoorFlatDetails(e.target.value)}
-              placeholder="Flat / House / Floor No., Apartment Name, Landmark (Optional)"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '0.825rem',
-                backgroundColor: '#ffffff'
-              }}
-            />
+            <div>
+              <label style={{ display: 'block', fontSize: '0.72rem', color: '#64748b', fontWeight: 600, marginBottom: '3px' }}>
+                🏠 Building / Flat / Landmark (Optional):
+              </label>
+              <input
+                type="text"
+                value={doorFlatDetails}
+                onChange={(e) => setDoorFlatDetails(e.target.value)}
+                placeholder="Flat / House / Floor No., Apartment Name, Landmark"
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.825rem',
+                  backgroundColor: '#ffffff'
+                }}
+              />
+            </div>
           </div>
 
           {statusMessage && (

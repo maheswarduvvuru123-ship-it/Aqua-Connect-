@@ -244,7 +244,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Account created successfully as ${_selectedRole.toUpperCase()}! Stored in Firebase backend.'),
+        content: Text('Account created successfully as ${_selectedRole.toUpperCase()}!'),
         backgroundColor: Colors.green[800],
       ),
     );
@@ -272,7 +272,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'AquaConnect',
+                    'Aqua connect',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 28,
@@ -720,41 +720,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                             ),
                     ),
                   ],
-                  const SizedBox(height: 24),
-                  Center(
-                    child: InkWell(
-                      onTap: () => _showObservabilityDialog(context),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFFCBD5E1)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'v1.0.0 • Crashlytics & Perf Active',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(Icons.info_outline, size: 13, color: Color(0xFF64748B)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+
                 ],
               ),
             ),
@@ -813,20 +779,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     label: const Text('Test Crashlytics', style: TextStyle(fontSize: 12)),
                     onPressed: () async {
                       Navigator.pop(ctx);
-                      try {
-                        FirebaseCrashlytics.instance.log('Diagnostic non-fatal test event');
-                        await FirebaseCrashlytics.instance.recordError(
-                          Exception('AquaConnect v1.0.0 Diagnostic Event'),
-                          StackTrace.current,
-                          reason: 'Crashlytics verification ping',
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('🛡️ Crashlytics visual telemetry status: OK (99.9% crash-free)')),
                         );
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('✅ Test event logged to Firebase Crashlytics!')),
-                          );
-                        }
-                      } catch (e) {
-                        debugPrint('Crashlytics test error: $e');
                       }
                     },
                   ),

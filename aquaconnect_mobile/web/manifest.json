@@ -1,6 +1,6 @@
 {
-    "name": "aquaconnect_mobile",
-    "short_name": "aquaconnect_mobile",
+    "name": "Aqua connect",
+    "short_name": "Aqua connect",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

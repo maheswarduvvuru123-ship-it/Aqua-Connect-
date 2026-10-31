@@ -51,7 +51,7 @@ const SupplierDeliveries = () => {
     const rawDeliveries = getCollection('deliveries') || [];
     const filteredDeliveries = rawDeliveries.filter(d => {
       // If delivery is stamped with another specific supplier's ID, do NOT leak to this supplier
-      if (d.supplierId && d.supplierId !== 'supplier' && d.supplierId !== 'sup_001') {
+      if (d.supplierId && d.supplierId !== 'supplier') {
         return d.supplierId === currentUser?.uid;
       }
       return orderIds.has(d.orderId);

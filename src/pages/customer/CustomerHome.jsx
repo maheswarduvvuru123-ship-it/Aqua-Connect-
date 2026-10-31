@@ -10,36 +10,81 @@ import {
   ShieldCheck, 
   Clock, 
   CheckCircle2,
-  Search
+  Search,
+  MapPin
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { getCollection, subscribeToData } from '../../services/firestoreData';
+import { getCollection, updateDoc, subscribeToData } from '../../services/firestoreData';
 import { formatCurrency } from '../../utils/formatters';
+import { findSurroundingSuppliers } from '../../utils/locationMatcher';
+import ZomatoLocationPickerModal from '../../components/ZomatoLocationPickerModal';
 
 const CustomerHome = ({ onOpenCart }) => {
-  const { currentUser } = useAuth();
-  const { addToCart, cartItems } = useCart();
+  const { currentUser, updateCurrentUser } = useAuth();
+  const { addToCart, cartItems, setDeliveryInfo } = useCart();
   const { showToast } = useNotifications();
 
   const [products, setProducts] = useState([]);
   const [quantities, setQuantities] = useState({});
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [search, setSearch] = useState('');
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  const [matchedPlant, setMatchedPlant] = useState(null);
+  const [latestOrder, setLatestOrder] = useState(null);
 
   const loadProducts = () => {
-    const all = getCollection('products');
-    setProducts(all.filter(p => p.isActive));
+    const all = getCollection('products') || [];
+    setProducts(all.filter(p => p.isActive !== false));
+  };
+
+  const loadLatestOrder = () => {
+    if (!currentUser) {
+      setLatestOrder(null);
+      return;
+    }
+    const all = getCollection('orders') || [];
+    const myUid = String(currentUser.uid || currentUser.id || '').trim();
+    const myEmail = (currentUser.email || '').toLowerCase().trim();
+    const myOrders = all.filter(o => {
+      if (!o) return false;
+      const orderCustId = String(o.customerId || '').trim();
+      const orderEmail = (o.customerEmail || '').toLowerCase().trim();
+      return (myUid && orderCustId === myUid) || (myEmail && (orderEmail === myEmail || orderCustId === myEmail));
+    });
+    myOrders.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    setLatestOrder(myOrders[0] || null);
+  };
+
+  const resolveMatchedPlant = () => {
+    const custAddr = currentUser?.address || '';
+    if (!custAddr.trim()) {
+      setMatchedPlant(null);
+      return;
+    }
+    const surrounding = findSurroundingSuppliers(custAddr, currentUser?.city);
+    if (surrounding.length > 0) {
+      setMatchedPlant(surrounding[0]);
+    } else {
+      // No location match found — don't show a random plant
+      setMatchedPlant(null);
+    }
   };
 
   useEffect(() => {
     loadProducts();
+    resolveMatchedPlant();
+    loadLatestOrder();
     const unsub = subscribeToData((coll) => {
-      if (coll === 'products' || coll === 'all') loadProducts();
+      if (coll === 'products' || coll === 'all' || coll === 'suppliers' || coll === 'users' || coll === 'orders') {
+        loadProducts();
+        resolveMatchedPlant();
+        loadLatestOrder();
+      }
     });
     return () => unsub();
-  }, []);
+  }, [currentUser]);
 
   const handleQtyChange = (productId, delta) => {
     setQuantities(prev => {
@@ -67,8 +112,220 @@ const CustomerHome = ({ onOpenCart }) => {
     return true;
   });
 
+  const handleSelectLocation = (location) => {
+    const fullAddress = location.fullAddress || location.formattedAddress || `${location.locality}, ${location.city}`;
+    if (!fullAddress) return;
+
+    if (updateCurrentUser) {
+      updateCurrentUser({ address: fullAddress });
+    }
+    if (setDeliveryInfo) {
+      setDeliveryInfo(prev => ({ ...prev, address: fullAddress }));
+    }
+    if (currentUser?.uid) {
+      try {
+        updateDoc('users', 'uid', currentUser.uid, { address: fullAddress });
+        updateDoc('customers', 'customerId', currentUser.uid, { address: fullAddress });
+      } catch (e) {
+        console.warn("Storage update error", e);
+      }
+    }
+    setIsMapModalOpen(false);
+    showToast(`Delivery location updated to: ${location.locality || fullAddress}! 📍`, 'success');
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', maxWidth: '1280px', margin: '0 auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1280px', margin: '0 auto' }}>
+      {/* Active Delivery Location Bar */}
+      <div 
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          padding: '14px 20px',
+          border: '1.5px solid #bae6fd',
+          boxShadow: '0 2px 10px rgba(2, 132, 199, 0.08)',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: '240px' }}>
+          <div 
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              backgroundColor: '#e0f2fe',
+              color: '#0284c7',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <MapPin size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: '#0369a1', letterSpacing: '0.5px' }}>
+              📍 DELIVERING WATER TO YOUR LOCATION
+            </div>
+            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a' }}>
+              {currentUser?.address || 'Flat 402, Sai Residency, Madhapur, Hyderabad'}
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsMapModalOpen(true)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '9px 18px',
+            borderRadius: '10px',
+            backgroundColor: '#0284c7',
+            color: '#ffffff',
+            border: 'none',
+            fontWeight: 700,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          🗺️ Change Location on Map
+        </button>
+      </div>
+
+      {/* Live Order Delivery Status Banner */}
+      {latestOrder && (
+        <div 
+          style={{
+            backgroundColor: latestOrder.orderStatus === 'Delivered' ? '#f0fdf4' : '#f0f9ff',
+            border: `1.5px solid ${latestOrder.orderStatus === 'Delivered' ? '#86efac' : '#bae6fd'}`,
+            borderRadius: '16px',
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.04)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '1.6rem' }}>
+              {latestOrder.orderStatus === 'Delivered' ? '✅' : '🚚'}
+            </span>
+            <div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' }}>
+                Order #{latestOrder.orderId} • Status: <span style={{ color: latestOrder.orderStatus === 'Delivered' ? '#16a34a' : '#0284c7' }}>{latestOrder.orderStatus} {latestOrder.orderStatus === 'Delivered' ? '🎉' : ''}</span>
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
+                {latestOrder.orderStatus === 'Delivered' 
+                  ? 'Water cans delivered to your door! Tap to view invoice & details.'
+                  : `Your delivery is in progress. Status: ${latestOrder.orderStatus}.`}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('navigate-customer-tab', { detail: 'orders' }));
+              }
+            }}
+            style={{
+              backgroundColor: latestOrder.orderStatus === 'Delivered' ? '#16a34a' : '#0284c7',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px 16px',
+              fontWeight: 700,
+              fontSize: '0.82rem',
+              cursor: 'pointer'
+            }}
+          >
+            {latestOrder.orderStatus === 'Delivered' ? 'View Delivered Order →' : 'Track Order →'}
+          </button>
+        </div>
+      )}
+
+      {/* Linked Fulfilling Water Plant based on Customer Location */}
+      {matchedPlant ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: '#f0fdf4',
+            borderRadius: '16px',
+            padding: '14px 20px',
+            border: '1.5px solid #86efac',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 2px 8px rgba(22, 163, 74, 0.08)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                backgroundColor: '#dcfce7',
+                color: '#15803d',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.3rem'
+              }}
+            >
+              🏭
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: '#166534', letterSpacing: '0.5px' }}>
+                  FULFILLING WATER SUPPLY PLANT
+                </span>
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, backgroundColor: '#dcfce7', color: '#15803d', padding: '1px 8px', borderRadius: '10px' }}>
+                  {matchedPlant.isVerified ? '✓ Verified Certified Plant' : '🟢 Live Account'}
+                </span>
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, backgroundColor: '#e0f2fe', color: '#0369a1', padding: '1px 8px', borderRadius: '10px' }}>
+                  Within Delivery Range
+                </span>
+              </div>
+              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>
+                {matchedPlant.businessName || matchedPlant.plantName || matchedPlant.name}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#475569' }}>
+                📍 {matchedPlant.address || matchedPlant.city} • 📞 {matchedPlant.phone}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ fontSize: '0.82rem', color: '#166534', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <CheckCircle2 size={18} color="#16a34a" /> Direct Doorstep Delivery Active
+          </div>
+        </div>
+      ) : (currentUser?.address) ? (
+        <div style={{
+          backgroundColor: '#fef9c3',
+          border: '1px solid #fde047',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          fontSize: '0.85rem',
+          color: '#713f12',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <span style={{ fontSize: '1.1rem' }}>📍</span>
+          <span>No certified water plant found near your location. Update your delivery address in Profile or contact support.</span>
+        </div>
+      ) : null}
+
       {/* Welcome Banner as required in Section 13 */}
       <div 
         style={{
@@ -228,15 +485,31 @@ const CustomerHome = ({ onOpenCart }) => {
             >
               {/* Product Image */}
               <div style={{ height: '180px', position: 'relative', overflow: 'hidden' }}>
-                <img 
-                  src={product.image} 
-                  alt={product.name}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover'
-                  }}
-                />
+                {(() => {
+                  const fallbackImg = (product.name || '').toLowerCase().includes('cool') || (product.name || '').toLowerCase().includes('chill')
+                    ? '/images/cool_water_can.jpg'
+                    : (product.name || '').toLowerCase().includes('packet') || (product.name || '').toLowerCase().includes('pouch')
+                    ? '/images/water_pouches_pack.jpg'
+                    : (product.name || '').toLowerCase().includes('bottle')
+                    ? '/images/bottled_water_pack.jpg'
+                    : '/images/bubble_top_can.jpg';
+
+                  return (
+                    <img 
+                      src={product.image || fallbackImg} 
+                      alt={product.name}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = fallbackImg;
+                      }}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                    />
+                  );
+                })()}
                 <div style={{ position: 'absolute', top: '10px', left: '10px' }}>
                   <span className="badge badge-delivered" style={{ fontSize: '0.72rem' }}>
                     Available
@@ -326,6 +599,15 @@ const CustomerHome = ({ onOpenCart }) => {
           );
         })}
       </div>
+
+      {/* Interactive Delivery Location Map Modal */}
+      <ZomatoLocationPickerModal 
+        isOpen={isMapModalOpen}
+        onClose={() => setIsMapModalOpen(false)}
+        onSelectLocation={handleSelectLocation}
+        currentAddress={currentUser?.address || 'NH40, Vaddagandla, Andhra Pradesh, 518112'}
+        role="customer"
+      />
     </div>
   );
 };

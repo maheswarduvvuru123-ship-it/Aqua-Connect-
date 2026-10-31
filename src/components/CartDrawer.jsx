@@ -20,7 +20,16 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { formatCurrency } from '../utils/formatters';
-import { setDoc, addNotification, getDoc } from '../services/firestoreData';
+import { 
+  setDoc, 
+  addNotification, 
+  getDoc, 
+  getCollection, 
+  calculateServerOrderTotals, 
+  logAuditEvent, 
+  recordDirectPayment,
+  getSupplierPaymentDetails
+} from '../services/firestoreData';
 import { findSurroundingSuppliers } from '../utils/locationMatcher';
 
 const DELIVERY_SLOTS = [
@@ -49,6 +58,16 @@ const CartDrawer = ({ isOpen, onClose, onViewOrders }) => {
   const [placedOrder, setPlacedOrder] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showUpiModal, setShowUpiModal] = useState(false);
+  const [upiUtrReference, setUpiUtrReference] = useState('');
+
+  // Determine fulfilling supplier dynamically for payment isolation
+  const surroundingSuppliers = findSurroundingSuppliers(deliveryInfo.address, currentUser?.city);
+  const allUsersSuppliers = (getCollection('users') || []).filter(u => u.role === 'supplier' && u.accountStatus !== 'Deleted from Backend' && u.accountStatus !== 'Suspended' && !u.isSuspended);
+  const allRegSuppliers = (getCollection('suppliers') || []).filter(s => s.status !== 'Deleted from Backend' && s.status !== 'Suspended' && !s.isSuspended);
+  const availableSuppliers = [...allUsersSuppliers, ...allRegSuppliers];
+  const targetSupplier = surroundingSuppliers.length > 0 ? surroundingSuppliers[0] : (availableSuppliers.length > 0 ? availableSuppliers[0] : null);
+  const targetSupplierId = cartItems[0]?.supplierId || targetSupplier?.uid || targetSupplier?.supplierId || targetSupplier?.id || (availableSuppliers[0]?.uid || 'supplier');
+  const supplierPayment = getSupplierPaymentDetails(targetSupplierId);
 
   if (!isOpen) return null;
 
@@ -69,39 +88,55 @@ const CartDrawer = ({ isOpen, onClose, onViewOrders }) => {
       const orderNumber = Math.floor(1000 + Math.random() * 9000);
       const newOrderId = `AC${orderNumber}`;
 
+      const allUsersSuppliers = (getCollection('users') || []).filter(u => u.role === 'supplier' && u.accountStatus !== 'Deleted from Backend' && u.accountStatus !== 'Suspended' && !u.isSuspended);
+      const allRegSuppliers = (getCollection('suppliers') || []).filter(s => s.status !== 'Deleted from Backend' && s.status !== 'Suspended' && !s.isSuspended);
+      const availableSuppliers = [...allUsersSuppliers, ...allRegSuppliers];
+
+      const itemSupplierId = cartItems[0]?.supplierId;
+      const matchedItemSupplier = itemSupplierId ? availableSuppliers.find(s => s.uid === itemSupplierId || s.supplierId === itemSupplierId || s.id === itemSupplierId) : null;
       const surroundingSuppliers = findSurroundingSuppliers(deliveryInfo.address, currentUser?.city);
-      const allSuppliers = (getCollection('users') || []).filter(u => u.role === 'supplier');
-      const targetSupplier = surroundingSuppliers.length > 0 ? surroundingSuppliers[0] : (allSuppliers.length > 0 ? allSuppliers[0] : null);
-      const targetSupplierId = targetSupplier?.uid || targetSupplier?.id || cartItems[0]?.supplierId || 'sup_001';
-      const plantName = targetSupplier?.name || targetSupplier?.businessName || 'AquaConnect Certified Water Plant';
+      const targetSupplier = matchedItemSupplier || (surroundingSuppliers.length > 0 ? surroundingSuppliers[0] : (availableSuppliers[0] || null));
+      const targetSupplierId = targetSupplier?.uid || targetSupplier?.supplierId || targetSupplier?.id || itemSupplierId || (availableSuppliers[0]?.uid || 'supplier');
+      const plantName = targetSupplier?.businessName || targetSupplier?.plantName || targetSupplier?.name || 'AquaConnect Certified Water Plant';
+
+      // Authoritative server-side price calculation from catalog
+      const serverCalculations = calculateServerOrderTotals(cartItems, deliveryFee || 30);
+      const isOnlineOrUpi = deliveryInfo.paymentMethod === 'UPI' || deliveryInfo.paymentMethod === 'Online Payment';
+      const initialPaidAmount = isOnlineOrUpi ? serverCalculations.grandTotal : 0;
+      const initialOutstanding = isOnlineOrUpi ? 0 : serverCalculations.grandTotal;
+      const initialPaymentStatus = isOnlineOrUpi ? 'Paid' : 'Unpaid';
 
       const newOrder = {
         orderId: newOrderId,
-        customerId: currentUser?.uid || 'cust_guest',
+        orderNumber: `#${newOrderId}`,
+        customerId: currentUser?.uid || currentUser?.id || currentUser?.email || 'cust_guest',
         customerName: currentUser?.name || currentUser?.email?.split('@')[0] || 'Customer',
+        customerEmail: currentUser?.email || '',
         customerPhone: currentUser?.phone || '',
         supplierId: targetSupplierId,
+        supplierName: plantName,
         plantName: plantName,
-        items: cartItems.map(i => ({
-          productId: i.productId,
-          name: i.name,
-          quantity: i.quantity,
-          price: i.price,
-          unit: i.unit || ''
-        })),
-        totalAmount: grandTotal,
+        supplierEmail: targetSupplier?.email || '',
+        supplierPhone: targetSupplier?.phone || '',
+        items: serverCalculations.items,
+        subtotal: serverCalculations.subtotal,
+        deliveryFee: serverCalculations.deliveryFee,
+        totalAmount: serverCalculations.grandTotal,
+        currency: 'INR',
         deliveryAddress: deliveryInfo.address,
         deliveryDate: deliveryInfo.deliveryDate,
         deliveryTime: deliveryInfo.deliverySlot,
         deliveryPerson: 'Unassigned',
-        paymentMethod: deliveryInfo.paymentMethod,
-        paymentStatus: deliveryInfo.paymentMethod === 'UPI' ? 'Paid' : 'Pending',
+        paymentMethod: deliveryInfo.paymentMethod, // 'Cash' | 'UPI'
+        paymentStatus: initialPaymentStatus,
+        paidAmount: initialPaidAmount,
+        outstandingBalance: initialOutstanding,
         orderStatus: 'Pending',
         timeline: [
           {
             status: 'Order Placed',
             time: new Date().toISOString(),
-            note: `Order placed via Customer Portal. Payment: ${deliveryInfo.paymentMethod}`
+            note: `Order placed via Customer Portal. Payment: ${deliveryInfo.paymentMethod} (${initialPaymentStatus})`
           }
         ],
         createdAt: new Date().toISOString(),
@@ -111,18 +146,53 @@ const CartDrawer = ({ isOpen, onClose, onViewOrders }) => {
       // Save order to Firestore
       setDoc('orders', 'orderId', newOrder);
 
+      // Log Audit Event
+      logAuditEvent(
+        currentUser || { uid: 'guest', role: 'customer' },
+        'ORDER_CREATED',
+        'order',
+        newOrderId,
+        {
+          totalAmount: serverCalculations.grandTotal,
+          itemsCount: serverCalculations.items.length,
+          supplierId: targetSupplierId,
+          paymentMethod: deliveryInfo.paymentMethod
+        }
+      );
+
+      // If customer paid via direct UPI or Online Payment Gateway, record payment
+      if (deliveryInfo.paymentMethod === 'UPI' || deliveryInfo.paymentMethod === 'Online Payment') {
+        try {
+          recordDirectPayment({
+            orderId: newOrderId,
+            amount: serverCalculations.grandTotal,
+            method: deliveryInfo.paymentMethod === 'UPI' ? 'UPI Direct' : 'Payment Gateway (QR/Online)',
+            reference: upiUtrReference.trim() || `PAY_GW_${Math.floor(100000 + Math.random() * 900000)}`,
+            notes: `Customer submitted payment via ${deliveryInfo.paymentMethod} (${supplierPayment.plantName}).`,
+            recordedBy: {
+              uid: currentUser?.uid || 'cust_guest',
+              name: currentUser?.name || 'Customer',
+              role: 'customer'
+            }
+          });
+        } catch (payErr) {
+          console.warn("Could not record initial checkout payment:", payErr);
+        }
+      }
+
       // Create delivery record
       setDoc('deliveries', 'deliveryId', {
         deliveryId: `del_${Date.now()}`,
         orderId: newOrderId,
         supplierId: targetSupplierId,
-        customerId: currentUser?.uid || 'cust_guest',
+        customerId: currentUser?.uid || currentUser?.id || currentUser?.email || 'cust_guest',
         customerName: currentUser?.name || currentUser?.email?.split('@')[0] || 'Customer',
+        customerEmail: currentUser?.email || '',
         customerPhone: currentUser?.phone || '',
         deliveryPersonId: null,
         deliveryPersonName: 'Unassigned',
         deliveryAddress: deliveryInfo.address,
-        productSummary: cartItems.map(i => `${i.name} × ${i.quantity}`).join(', '),
+        productSummary: serverCalculations.items.map(i => `${i.name} × ${i.quantity}`).join(', '),
         status: 'Pending',
         expectedDeliveryTime: deliveryInfo.deliverySlot,
         assignedAt: null,
@@ -134,7 +204,7 @@ const CartDrawer = ({ isOpen, onClose, onViewOrders }) => {
         userId: targetSupplierId,
         role: 'supplier',
         title: 'New Water Order Received! 💧',
-        message: `${currentUser?.name || currentUser?.email || 'Customer'} placed order #${newOrderId} for ${formatCurrency(grandTotal)}.`,
+        message: `${currentUser?.name || currentUser?.email || 'Customer'} placed order #${newOrderId} for ${formatCurrency(serverCalculations.grandTotal)}.`,
         type: 'new_order',
         orderId: newOrderId
       });
@@ -260,16 +330,32 @@ const CartDrawer = ({ isOpen, onClose, onViewOrders }) => {
                         backgroundColor: '#ffffff'
                       }}
                     >
-                      <img 
-                        src={item.image} 
-                        alt={item.name} 
-                        style={{
-                          width: '68px',
-                          height: '68px',
-                          borderRadius: '8px',
-                          objectFit: 'cover'
-                        }}
-                      />
+                      {(() => {
+                        const fallbackImg = (item.name || '').toLowerCase().includes('cool') || (item.name || '').toLowerCase().includes('chill')
+                          ? '/images/cool_water_can.jpg'
+                          : (item.name || '').toLowerCase().includes('packet') || (item.name || '').toLowerCase().includes('pouch')
+                          ? '/images/water_pouches_pack.jpg'
+                          : (item.name || '').toLowerCase().includes('bottle')
+                          ? '/images/bottled_water_pack.jpg'
+                          : '/images/bubble_top_can.jpg';
+
+                        return (
+                          <img 
+                            src={item.image || fallbackImg} 
+                            alt={item.name} 
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = fallbackImg;
+                            }}
+                            style={{
+                              width: '68px',
+                              height: '68px',
+                              borderRadius: '8px',
+                              objectFit: 'cover'
+                            }}
+                          />
+                        );
+                      })()}
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>
@@ -521,11 +607,116 @@ const CartDrawer = ({ isOpen, onClose, onViewOrders }) => {
                     <QrCode size={20} color="#0284c7" />
                     <div>
                       <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>UPI / QR Instant Pay</div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>GPay, PhonePe, Paytm, BHIM</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Direct to {supplierPayment.plantName} (GPay, PhonePe, Paytm, BHIM)</div>
                     </div>
                   </label>
 
-                  {/* Online Payment */}
+                  {/* Supplier-Specific UPI & QR Code Box (Isolated per fulfilling supplier) */}
+                  {deliveryInfo.paymentMethod === 'UPI' && (
+                    <div 
+                      style={{
+                        padding: '14px',
+                        borderRadius: '12px',
+                        backgroundColor: '#f0f9ff',
+                        border: '1.5px solid #bae6fd',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0369a1' }}>
+                          ⚡ DIRECT PAYMENT TO SUPPLIER
+                        </div>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#0284c7', backgroundColor: '#e0f2fe', padding: '2px 6px', borderRadius: '4px' }}>
+                          {supplierPayment.plantName}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <img 
+                          src={supplierPayment.generateQrUrl(grandTotal)}
+                          alt={`${supplierPayment.plantName} Merchant QR Code`}
+                          style={{
+                            width: '105px',
+                            height: '105px',
+                            borderRadius: '8px',
+                            border: '1px solid #7dd3fc',
+                            backgroundColor: '#ffffff',
+                            padding: '4px'
+                          }}
+                        />
+                        <div style={{ flex: 1, minWidth: '180px', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div>
+                            <div style={{ color: '#64748b', fontSize: '0.7rem' }}>Fulfilling Water Plant:</div>
+                            <strong style={{ color: '#0f172a' }}>{supplierPayment.plantName}</strong>
+                          </div>
+
+                          <div>
+                            <div style={{ color: '#64748b', fontSize: '0.7rem' }}>Merchant UPI ID:</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <code style={{ backgroundColor: '#ffffff', padding: '2px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#0284c7' }}>
+                                {supplierPayment.upiId}
+                              </code>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(supplierPayment.upiId);
+                                  showToast('Copied Supplier UPI ID!', 'success');
+                                }}
+                                style={{ border: 'none', background: 'none', color: '#0284c7', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          </div>
+
+                          <div>
+                            <div style={{ color: '#64748b', fontSize: '0.7rem' }}>Supplier Phone / GPay:</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <strong style={{ color: '#334155' }}>{supplierPayment.upiPhoneNumber}</strong>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(supplierPayment.upiPhoneNumber);
+                                  showToast('Copied Supplier Phone Number!', 'success');
+                                }}
+                                style={{ border: 'none', background: 'none', color: '#0284c7', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* UTR Input */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#0369a1', marginBottom: '4px' }}>
+                          Transaction UTR / Reference ID (after paying)
+                        </label>
+                        <input 
+                          type="text"
+                          placeholder="e.g. 402847291048"
+                          value={upiUtrReference}
+                          onChange={(e) => setUpiUtrReference(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '8px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid #7dd3fc',
+                            fontSize: '0.8rem',
+                            backgroundColor: '#ffffff'
+                          }}
+                        />
+                        <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '2px' }}>
+                          Transfers go straight to {supplierPayment.plantName}. Zero platform commission.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Online Payment / Payment Gateway */}
                   <label 
                     style={{
                       display: 'flex',
@@ -548,10 +739,115 @@ const CartDrawer = ({ isOpen, onClose, onViewOrders }) => {
                     />
                     <CreditCard size={20} color="#7c3aed" />
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>Credit / Debit Card</div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Cards & Netbanking gateway</div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>Online Payment Gateway (QR & Cards)</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Instant UPI QR Scanner, Google Pay, PhonePe & Cards</div>
                     </div>
                   </label>
+
+                  {/* Payment Gateway Box with QR Code when Online Payment is selected */}
+                  {deliveryInfo.paymentMethod === 'Online Payment' && (
+                    <div 
+                      style={{
+                        padding: '16px',
+                        borderRadius: '12px',
+                        backgroundColor: '#f8fafc',
+                        border: '1.5px solid #cbd5e1',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 800, color: '#0f172a' }}>
+                          <QrCode size={18} color="#0284c7" />
+                          <span>Payment Gateway - Scan & Pay</span>
+                        </div>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#0284c7', backgroundColor: '#e0f2fe', padding: '3px 8px', borderRadius: '6px' }}>
+                          AMOUNT: {formatCurrency(grandTotal)}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ textAlign: 'center' }}>
+                          <img 
+                            src={supplierPayment.generateQrUrl(grandTotal)}
+                            alt="Payment Gateway QR Code"
+                            style={{
+                              width: '120px',
+                              height: '120px',
+                              borderRadius: '8px',
+                              border: '1px solid #cbd5e1',
+                              backgroundColor: '#ffffff',
+                              padding: '6px',
+                              display: 'block'
+                            }}
+                          />
+                          <span style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                            Scan with any UPI App
+                          </span>
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: '180px', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '4px' }}>
+                            {['Google Pay', 'PhonePe', 'Paytm', 'BHIM', 'CRED'].map(app => (
+                              <span key={app} style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: '#e2e8f0', color: '#334155' }}>
+                                {app}
+                              </span>
+                            ))}
+                          </div>
+
+                          <div>
+                            <div style={{ color: '#64748b', fontSize: '0.7rem' }}>Receiving Merchant:</div>
+                            <strong style={{ color: '#0f172a' }}>{supplierPayment.plantName}</strong>
+                          </div>
+
+                          <div>
+                            <div style={{ color: '#64748b', fontSize: '0.7rem' }}>UPI ID:</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <code style={{ backgroundColor: '#ffffff', padding: '2px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#0284c7' }}>
+                                {supplierPayment.upiId}
+                              </code>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(supplierPayment.upiId);
+                                  showToast('Copied UPI ID!', 'success');
+                                }}
+                                style={{ border: 'none', background: 'none', color: '#0284c7', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Transaction UTR input */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                          Transaction Reference / UTR Number (from UPI App after payment) *
+                        </label>
+                        <input 
+                          type="text"
+                          placeholder="e.g. 402847291048 or UPI Ref"
+                          value={upiUtrReference}
+                          onChange={(e) => setUpiUtrReference(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '8px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid #cbd5e1',
+                            fontSize: '0.82rem',
+                            backgroundColor: '#ffffff'
+                          }}
+                        />
+                        <div style={{ fontSize: '0.68rem', color: '#059669', marginTop: '2px' }}>
+                          🔒 100% Secure End-to-End Encrypted Payment Gateway
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/water_delivery_provider.dart';
 import '../models/order_model.dart';
+import '../models/user_model.dart';
 import '../utils/theme.dart';
 
 /// Opens the unified water checkout sheet with empty can exchange, slot picker,
@@ -397,6 +398,105 @@ void showWaterCheckoutBottomSheet(
                         );
                       }).toList(),
                     ),
+                    if (paymentMethod == 'UPI / QR Pay') ...[
+                      const SizedBox(height: 10),
+                      Builder(
+                        builder: (_) {
+                          final currentSupplier = waterData.suppliers.firstWhere(
+                            (s) => s.uid == chosenSupplierId,
+                            orElse: () => waterData.suppliers.isNotEmpty
+                                ? waterData.suppliers.first
+                                : UserModel(
+                                    uid: 'sup_fallback',
+                                    name: 'Local Water Supplier',
+                                    email: 'supplier@aquaconnect.app',
+                                    phone: '9876543210',
+                                    role: 'supplier',
+                                    createdAt: DateTime.now(),
+                                  ),
+                          );
+                          final upiId = currentSupplier.upiId ??
+                              '${currentSupplier.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase()}@upi';
+                          final upiPhone = currentSupplier.upiPhoneNumber ?? currentSupplier.phone;
+
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withAlpha(16),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.blue.withAlpha(64)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.qr_code_scanner, color: Colors.blue, size: 18),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Direct Supplier Payment: ${currentSupplier.name}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                          color: Colors.blue[900],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Pay 100% directly to this water plant with zero platform commission.',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.grey.shade300),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          const Text(
+                                            'UPI VPA:',
+                                            style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold),
+                                          ),
+                                          SelectableText(
+                                            upiId,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          const Text(
+                                            'GPay / PhonePe:',
+                                            style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold),
+                                          ),
+                                          SelectableText(
+                                            upiPhone,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                     const Divider(height: 24),
 
                     // Bill Breakdown

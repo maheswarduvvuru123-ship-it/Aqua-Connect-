@@ -1,4 +1,4 @@
-import { getCollection } from '../services/firestoreData';
+import { getCollection } from '../services/firestoreData.js';
 
 /**
  * Proximity score calculation between customer and supplier locations.
@@ -58,11 +58,11 @@ export const calculateLocationScore = ({
       'pulivendula', 'badvel', 'kamalapuram',
       '516360', '516361', '516362', '516001', '516002', '516003', '516004'
     ]),
-    // 1: Nandyal District Region (Panyam, Balapanur, Banaganapalle, Allagadda, Betamcherla, NH40)
+    // 1: Nandyal District Region (Panyam, Balapanur, Banaganapalle, Allagadda, Vaddagandla, NH40, Betamcherla)
     new Set([
       'nandyal', 'panyam', 'paniem', 'balapanur', 'banaganapalle', 'allagadda',
-      'betamcherla', 'nh40', 'nandikotkur', 'atmakur', 'srisailam', 'koilkuntla',
-      '518112', '518501', '518502', '518503', '518504', '518511'
+      'vaddagandla', 'nh40', 'betamcherla', 'nandikotkur', 'atmakur', 'srisailam', 'koilkuntla',
+      '518112', '518501', '518502', '518503', '518504', '518511', '518543'
     ]),
     // 2: Kurnool Region
     new Set([
@@ -167,18 +167,36 @@ export const isLocationMatch = (params) => {
  * Returns suppliers servicing the given customer delivery address, ordered by closest match.
  */
 export const findSurroundingSuppliers = (customerAddress = '', customerCity = '') => {
-  const allUsers = getCollection('users') || [];
-  const suppliers = allUsers.filter(u => {
-    if (u.role !== 'supplier') return false;
-    const n = (u.businessName || u.name || '').toLowerCase();
-    const e = (u.email || '').toLowerCase();
-    if (n.includes('paddu') || n.includes('jaya') || e.includes('paddu') || e.includes('jaya') || n.includes('@')) return false;
-    return true;
+  const allUsers = (getCollection('users') || []).filter(u => 
+    u.role === 'supplier' && 
+    u.accountStatus !== 'Deleted from Backend' && 
+    u.accountStatus !== 'Suspended' && 
+    u.status !== 'Suspended' && 
+    !u.isSuspended
+  );
+  const allSuppliers = (getCollection('suppliers') || []).filter(s => 
+    s.status !== 'Deleted from Backend' && 
+    s.status !== 'Suspended' && 
+    s.accountStatus !== 'Suspended' && 
+    !s.isSuspended
+  );
+
+  const pool = [...allUsers];
+  allSuppliers.forEach(s => {
+    if (!pool.some(p => p.uid === s.supplierId || p.id === s.supplierId)) {
+      pool.push({
+        ...s,
+        uid: s.supplierId,
+        id: s.supplierId,
+        role: 'supplier'
+      });
+    }
   });
-  if (suppliers.length === 0) return [];
+
+  if (pool.length === 0) return [];
 
   const scored = [];
-  for (const s of suppliers) {
+  for (const s of pool) {
     const sc = calculateLocationScore({
       customerAddress,
       customerCity,
@@ -193,9 +211,12 @@ export const findSurroundingSuppliers = (customerAddress = '', customerCity = ''
 
   if (scored.length > 0) {
     scored.sort((a, b) => b.score - a.score);
-    return scored.map(item => item.supplier);
+    // Only return suppliers with a meaningful location match (score >= 10)
+    const goodMatches = scored.filter(item => item.score >= 10);
+    if (goodMatches.length > 0) return goodMatches.map(item => item.supplier);
   }
 
+  // No meaningful location match found — return empty so UI shows "no plants near you"
   return [];
 };
 
@@ -208,39 +229,35 @@ export const filterOrdersForSupplier = (
   supplierId = '',
   supplierAddress = '',
   supplierCity = '',
-  deliveryAreas = []
+  deliveryAreas = [],
+  supplierEmail = '',
+  supplierPhone = ''
 ) => {
-  if (!supplierId) return [];
+  if (!supplierId && !supplierEmail) return [];
 
+  const cleanEmail = (supplierEmail || '').trim().toLowerCase();
+  const cleanId = String(supplierId || '').trim();
+
+  // Strict Supplier Isolation: Only show orders assigned directly to this specific supplier plant
   return orders.filter(order => {
-    // Strictly filter out email testing account orders
-    const cName = (order.customerName || '').toLowerCase();
-    const pName = (order.plantName || order.supplierName || '').toLowerCase();
-    const cId = (order.customerId || '').toLowerCase();
-    if (cName.includes('@') || pName.includes('@') || cId.includes('@') || cName.includes('paddu') || cName.includes('jaya') || pName.includes('paddu') || pName.includes('jaya')) {
-      return false;
+    if (!order) return false;
+    const orderSupId = String(order.supplierId || '').trim();
+
+    // 1. Direct supplier ID match
+    if (cleanId && (
+      orderSupId === cleanId || 
+      orderSupId === `sup_${cleanId}` ||
+      cleanId === `sup_${orderSupId}`
+    )) {
+      return true;
     }
 
-    // 1. Order explicitly created for this supplier
-    if (order.supplierId === supplierId) return true;
-
-    // 2. If order is stamped for another specific supplier, NEVER leak it to this supplier
-    if (order.supplierId && order.supplierId !== 'supplier' && order.supplierId !== 'sup_001') {
-      return false;
-    }
-
-    // 3. Unassigned legacy orders: only match if this supplier has an explicit high locality match (score >= 15)
-    if (!order.supplierId || order.supplierId === 'supplier' || order.supplierId === 'sup_001') {
-      if (supplierAddress || (deliveryAreas && deliveryAreas.length > 0)) {
-        const sc = calculateLocationScore({
-          customerAddress: order.deliveryAddress,
-          customerCity: '',
-          supplierAddress,
-          supplierCity,
-          deliveryAreas
-        });
-        return sc >= 15;
-      }
+    // 2. Email match if configured on order
+    if (cleanEmail && (
+      (order.supplierEmail || '').toLowerCase() === cleanEmail ||
+      orderSupId.toLowerCase() === cleanEmail
+    )) {
+      return true;
     }
 
     return false;
@@ -263,24 +280,14 @@ export const filterCustomersForSupplier = (
   const supplierOrders = filterOrdersForSupplier(orders, supplierId, supplierAddress, supplierCity, deliveryAreas);
   const customerIdsWithOrders = new Set(supplierOrders.map(o => o.customerId).filter(Boolean));
   const customerPhonesWithOrders = new Set(supplierOrders.map(o => o.customerPhone).filter(Boolean));
+  const customerEmailsWithOrders = new Set(supplierOrders.map(o => o.customerEmail).filter(Boolean));
 
   return customers.filter(cust => {
     const cid = cust.customerId || cust.userId || cust.id;
     if (customerIdsWithOrders.has(cid) ||
-        (cust.email && customerIdsWithOrders.has(cust.email)) ||
+        (cust.email && (customerIdsWithOrders.has(cust.email) || customerEmailsWithOrders.has(cust.email))) ||
         (cust.phone && customerPhonesWithOrders.has(cust.phone))) {
       return true;
-    }
-
-    if ((supplierAddress || (deliveryAreas && deliveryAreas.length > 0)) && cust.address) {
-      const sc = calculateLocationScore({
-        customerAddress: cust.address,
-        customerCity: '',
-        supplierAddress,
-        supplierCity,
-        deliveryAreas
-      });
-      return sc >= 15;
     }
 
     return false;

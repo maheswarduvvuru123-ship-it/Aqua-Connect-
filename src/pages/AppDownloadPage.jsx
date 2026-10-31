@@ -18,15 +18,17 @@ import {
   Lock
 } from 'lucide-react';
 
-const APK_DOWNLOAD_URL = "https://github.com/maheswarduvvuru123-ship-it/Aqua-Connect-/releases/download/v1.0.0/app-release.apk";
+const APK_DOWNLOAD_URL = "https://github.com/maheswarduvvuru123-ship-it/Aqua-Connect-/raw/main/releases/app-release.apk";
 const WEB_APP_URL = "https://aqua-ec4f5.web.app";
-const QR_IMAGE_URL = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&color=0284c7&data=${encodeURIComponent("https://aqua-ec4f5.web.app/#download")}`;
+const QR_WEB_URL = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&color=0284c7&data=${encodeURIComponent("https://aqua-ec4f5.web.app/#download")}`;
+const QR_APK_URL = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&color=16a34a&data=${encodeURIComponent(APK_DOWNLOAD_URL)}`;
 
 const AppDownloadPage = ({ onBackToApp }) => {
   const [copied, setCopied] = useState(false);
   const [downloadStarted, setDownloadStarted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
+  const [qrMode, setQrMode] = useState('apk'); // 'apk' | 'web'
   const [activeTab, setActiveTab] = useState('customer'); // 'customer' | 'supplier'
 
   useEffect(() => {
@@ -365,21 +367,71 @@ const AppDownloadPage = ({ onBackToApp }) => {
               display: 'inline-block',
               padding: '8px 16px',
               borderRadius: '20px',
-              backgroundColor: '#0284c7',
+              backgroundColor: qrMode === 'apk' ? '#16a34a' : '#0284c7',
               color: '#ffffff',
               fontSize: '0.82rem',
               fontWeight: 800,
               letterSpacing: '0.5px',
-              marginBottom: '18px'
+              marginBottom: '16px',
+              transition: 'all 0.2s ease'
             }}>
               📲 SCAN WITH PHONE CAMERA
             </div>
 
+            {/* Toggle QR Target */}
+            <div style={{
+              display: 'inline-flex',
+              backgroundColor: '#f1f5f9',
+              padding: '4px',
+              borderRadius: '12px',
+              gap: '4px',
+              marginBottom: '16px'
+            }}>
+              <button
+                type="button"
+                onClick={() => setQrMode('apk')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: qrMode === 'apk' ? '#ffffff' : 'transparent',
+                  color: qrMode === 'apk' ? '#16a34a' : '#64748b',
+                  boxShadow: qrMode === 'apk' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                ⚡ Download APK
+              </button>
+              <button
+                type="button"
+                onClick={() => setQrMode('web')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: qrMode === 'web' ? '#ffffff' : 'transparent',
+                  color: qrMode === 'web' ? '#0284c7' : '#64748b',
+                  boxShadow: qrMode === 'web' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                🌐 Open Web App
+              </button>
+            </div>
+
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 8px 0', color: '#0f172a' }}>
-              Instant App QR Code
+              {qrMode === 'apk' ? 'Scan to Download Updated App' : 'Scan to Open Web Platform'}
             </h3>
-            <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '0 0 20px 0' }}>
-              Customers or suppliers can point their camera to open and download instantly.
+            <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '0 0 16px 0' }}>
+              {qrMode === 'apk' 
+                ? 'Point camera to immediately download the latest release APK directly to your phone.' 
+                : 'Point camera to open the instant web version in your phone browser.'}
             </p>
 
             {/* QR Code Container */}
@@ -388,12 +440,13 @@ const AppDownloadPage = ({ onBackToApp }) => {
               padding: '16px',
               backgroundColor: '#ffffff',
               borderRadius: '20px',
-              border: '2px solid #0284c7',
-              boxShadow: '0 8px 24px rgba(2, 132, 199, 0.12)',
-              marginBottom: '16px'
+              border: `2px solid ${qrMode === 'apk' ? '#16a34a' : '#0284c7'}`,
+              boxShadow: `0 8px 24px ${qrMode === 'apk' ? 'rgba(22, 163, 74, 0.15)' : 'rgba(2, 132, 199, 0.12)'}`,
+              marginBottom: '16px',
+              transition: 'all 0.2s ease'
             }}>
               <img 
-                src={QR_IMAGE_URL} 
+                src={qrMode === 'apk' ? QR_APK_URL : QR_WEB_URL} 
                 alt="Aqua connect Scan Me QR Code" 
                 style={{ width: '220px', height: '220px', display: 'block', borderRadius: '8px' }}
               />
@@ -408,7 +461,7 @@ const AppDownloadPage = ({ onBackToApp }) => {
               color: '#475569',
               lineHeight: 1.5
             }}>
-              💡 <strong>Tip for Suppliers:</strong> Print this QR code and paste it on your 20L water cans or billing counter so customers can re-order with a single scan!
+              💡 <strong>Instant Phone Install:</strong> Scanning this with Chrome, Google Lens, or your Camera will start downloading the latest APK with all new features!
             </div>
           </div>
         </div>

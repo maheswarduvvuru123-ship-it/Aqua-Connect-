@@ -136,8 +136,8 @@ const AdminSubscriptions = () => {
     setPlanForm({
       targetRole: activeRoleTab,
       name: '',
-      monthlyPrice: activeRoleTab === 'supplier' ? 999 : 199,
-      yearlyPrice: activeRoleTab === 'supplier' ? 9999 : 1999,
+      monthlyPrice: activeRoleTab === 'supplier' ? 2999 : 199,
+      yearlyPrice: activeRoleTab === 'supplier' ? 29999 : 1999,
       trialDays: 14,
       orderLimit: '',
       status: 'draft',

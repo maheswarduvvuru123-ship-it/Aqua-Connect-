@@ -1752,7 +1752,7 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
   }
 
   void _showUpgradePlanModal(BuildContext context) {
-    String selectedPlan = 'plan_pro';
+    String selectedPlan = 'plan_enterprise';
     String billingCycle = 'Monthly';
     final utrController = TextEditingController();
     bool isSubmitting = false;
@@ -1765,9 +1765,7 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
-          final curAmount = selectedPlan == 'plan_enterprise'
-              ? (billingCycle == 'Yearly' ? 29999 : 2999)
-              : (billingCycle == 'Yearly' ? 9999 : 999);
+          final curAmount = billingCycle == 'Yearly' ? 29999 : 2999;
 
           return Padding(
             padding: EdgeInsets.only(
@@ -1866,71 +1864,50 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Plan Options: Pro Flow vs Enterprise
-                  Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => setModalState(() => selectedPlan = 'plan_pro'),
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: selectedPlan == 'plan_pro' ? const Color(0xFFFAF5FF) : Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: selectedPlan == 'plan_pro' ? const Color(0xFF7C3AED) : const Color(0xFFCBD5E1),
-                                width: selectedPlan == 'plan_pro' ? 2 : 1,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                  // Enterprise Plan Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFAF5FF),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFF7C3AED),
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
-                                const Text('Pro Flow Plan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
-                                const SizedBox(height: 4),
-                                Text(
-                                  billingCycle == 'Yearly' ? '₹9,999/yr' : '₹999/mo',
-                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF7C3AED)),
+                                const Text('Enterprise Plan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF7C3AED),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text('FULL ACCESS', style: TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold)),
                                 ),
-                                const SizedBox(height: 4),
-                                const Text('Unlimited Orders & Fleet Dispatch', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
                               ],
                             ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => setModalState(() => selectedPlan = 'plan_enterprise'),
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: selectedPlan == 'plan_enterprise' ? const Color(0xFFFAF5FF) : Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: selectedPlan == 'plan_enterprise' ? const Color(0xFF7C3AED) : const Color(0xFFCBD5E1),
-                                width: selectedPlan == 'plan_enterprise' ? 2 : 1,
-                              ),
+                            const SizedBox(height: 4),
+                            Text(
+                              billingCycle == 'Yearly' ? '₹29,999 / year' : '₹2,999 / month',
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF7C3AED)),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Enterprise Plan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
-                                const SizedBox(height: 4),
-                                Text(
-                                  billingCycle == 'Yearly' ? '₹29,999/yr' : '₹2,999/mo',
-                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF7C3AED)),
-                                ),
-                                const SizedBox(height: 4),
-                                const Text('Multi-Plant & Priority 24/7 Hotline', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
-                              ],
-                            ),
-                          ),
+                            const SizedBox(height: 2),
+                            const Text('Multi-Plant, Delivery Fleet & Dedicated 24/7 Hotline', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                          ],
                         ),
-                      ),
-                    ],
+                        const Icon(Icons.check_circle, color: Color(0xFF7C3AED), size: 24),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 14),
 
@@ -2029,7 +2006,7 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
 
                               setModalState(() => isSubmitting = true);
                               final auth = Provider.of<AuthProvider>(context, listen: false);
-                              final planName = selectedPlan == 'plan_enterprise' ? 'Enterprise Plan' : 'Pro Flow Plan';
+                              const planName = 'Enterprise Plan';
                               final err = await auth.requestSubscriptionUpgrade(
                                 planId: selectedPlan,
                                 planName: planName,

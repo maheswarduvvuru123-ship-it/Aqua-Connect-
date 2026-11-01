@@ -540,7 +540,7 @@ export const AuthProvider = ({ children }) => {
       
       if (isSupplier && isFreePlan) {
         if (hasUsedFreeTrial(email, phone)) {
-          throw new Error('⚠️ Free Trial Already Used: This email or phone number has already utilized the 1-day free trial. Please select a paid subscription plan (Pro Flow or Enterprise).');
+          throw new Error('⚠️ Free Trial Already Used: This email or phone number has already utilized the 1-day free trial. Please select the Enterprise subscription plan.');
         }
       }
 
@@ -556,7 +556,7 @@ export const AuthProvider = ({ children }) => {
         accountStatus: initialAccountStatus,
         status: initialAccountStatus,
         planId: isSupplier ? planId : null,
-        planName: isSupplier ? (planId === 'plan_starter' ? 'Free Trial (1 Day)' : planId === 'plan_enterprise' ? 'Enterprise Aqua' : 'Pro Flow Plan') : 'Free Consumer',
+        planName: isSupplier ? (planId === 'plan_starter' ? 'Free Trial (1 Day)' : 'Enterprise Aqua') : 'Free Consumer',
         billingCycle: isSupplier ? (isFreePlan ? '1-Day Free Trial' : billingCycle) : null,
         subscriptionStatus: isSupplier ? initialAccountStatus : 'Active',
         isTrial: isSupplier && isFreePlan,

@@ -87,7 +87,7 @@ const SupplierProfile = () => {
 
   // Subscription Plan Upgrade State
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [selectedPlanId, setSelectedPlanId] = useState('plan_pro');
+  const [selectedPlanId, setSelectedPlanId] = useState('plan_enterprise');
   const [billingCycle, setBillingCycle] = useState('Monthly');
   const [upgradeUtr, setUpgradeUtr] = useState('');
   const [isSubmittingUpgrade, setIsSubmittingUpgrade] = useState(false);
@@ -113,8 +113,8 @@ const SupplierProfile = () => {
     setIsSubmittingUpgrade(true);
     try {
       const plans = getCollection('subscription_plans') || [];
-      const selectedPlan = plans.find(p => p.planId === selectedPlanId) || { yearlyPrice: 9999, monthlyPrice: 999, name: 'Pro Flow Plan' };
-      const amount = billingCycle === 'Yearly' ? (selectedPlan.yearlyPrice || 9999) : (selectedPlan.monthlyPrice || 999);
+      const selectedPlan = plans.find(p => p.planId === selectedPlanId) || { yearlyPrice: 29999, monthlyPrice: 2999, name: 'Enterprise Aqua' };
+      const amount = billingCycle === 'Yearly' ? (selectedPlan.yearlyPrice || 29999) : (selectedPlan.monthlyPrice || 2999);
       requestSupplierSubscription({
         supplierId: currentUser.uid,
         supplierName: supplierData.businessName || currentUser.name || 'Water Plant',
@@ -820,9 +820,7 @@ const SupplierProfile = () => {
 
             const feeDisplay = isTrial 
               ? '₹0 (1-Day Free Trial)' 
-              : isEnterprise 
-                ? (isYearly ? '₹24,999 / year' : '₹2,499 / month')
-                : (isYearly ? '₹9,999 / year' : '₹999 / month');
+              : (isYearly ? '₹29,999 / year' : '₹2,999 / month');
 
             return (
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: subStatus.isExpired ? '#fef2f2' : '#faf5ff', border: subStatus.isExpired ? '1px solid #fecaca' : '1px solid #e9d5ff', borderRadius: '12px', padding: '16px', flexWrap: 'wrap' }}>
@@ -1270,56 +1268,36 @@ const SupplierProfile = () => {
             </div>
 
             {/* Plan Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '22px' }}>
-              {/* Pro Flow Plan */}
-              <div
-                onClick={() => setSelectedPlanId('plan_pro')}
-                style={{
-                  border: selectedPlanId === 'plan_pro' ? '2px solid #7c3aed' : '1px solid #cbd5e1',
-                  backgroundColor: selectedPlanId === 'plan_pro' ? '#faf5ff' : '#ffffff',
-                  borderRadius: '14px',
-                  padding: '16px',
-                  cursor: 'pointer',
-                  position: 'relative'
-                }}
-              >
-                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase' }}>MOST POPULAR</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>Pro Flow Plan</div>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#7c3aed' }}>
-                  {billingCycle === 'Yearly' ? '₹9,999' : '₹999'}
-                  <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>/{billingCycle === 'Yearly' ? 'year' : 'mo'}</span>
-                </div>
-                <ul style={{ margin: '10px 0 0', padding: 0, listStyle: 'none', fontSize: '0.75rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <li>✓ Unlimited customer orders</li>
-                  <li>✓ Live real-time delivery alerts</li>
-                  <li>✓ Custom UPI & QR code payments</li>
-                  <li>✓ Priority support assistance</li>
-                </ul>
-              </div>
-
+            <div style={{ marginBottom: '22px' }}>
               {/* Enterprise Aqua */}
               <div
                 onClick={() => setSelectedPlanId('plan_enterprise')}
                 style={{
-                  border: selectedPlanId === 'plan_enterprise' ? '2px solid #7c3aed' : '1px solid #cbd5e1',
-                  backgroundColor: selectedPlanId === 'plan_enterprise' ? '#faf5ff' : '#ffffff',
+                  border: '2px solid #7c3aed',
+                  backgroundColor: '#faf5ff',
                   borderRadius: '14px',
-                  padding: '16px',
+                  padding: '18px',
                   cursor: 'pointer',
                   position: 'relative'
                 }}
               >
-                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase' }}>MULTI-PLANT</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>Enterprise Aqua</div>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0284c7' }}>
-                  {billingCycle === 'Yearly' ? '₹24,999' : '₹2,499'}
-                  <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>/{billingCycle === 'Yearly' ? 'year' : 'mo'}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase' }}>FULL PLATFORM ACCESS</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>Enterprise Aqua Plan</div>
+                    <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#7c3aed' }}>
+                      {billingCycle === 'Yearly' ? '₹29,999' : '₹2,999'}
+                      <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>/{billingCycle === 'Yearly' ? 'year' : 'mo'}</span>
+                    </div>
+                  </div>
+                  <CheckCircle2 color="#7c3aed" size={24} />
                 </div>
-                <ul style={{ margin: '10px 0 0', padding: 0, listStyle: 'none', fontSize: '0.75rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <li>✓ Everything in Pro Flow</li>
-                  <li>✓ Multi-vehicle delivery fleet</li>
-                  <li>✓ Dedicated Account Manager</li>
-                  <li>✓ 24/7 VIP Emergency Helpline</li>
+                <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none', fontSize: '0.8rem', color: '#475569', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '6px' }}>
+                  <li>✓ Unlimited customer orders & deliveries</li>
+                  <li>✓ Multi-vehicle delivery fleet manager</li>
+                  <li>✓ Advanced GST & Financial CSV exports</li>
+                  <li>✓ Custom QR Scanner & UPI Routing</li>
+                  <li>✓ Dedicated 24/7 VIP Account Helpline</li>
                 </ul>
               </div>
             </div>
@@ -1334,7 +1312,7 @@ const SupplierProfile = () => {
                   src={
                     platformSettings.adminQrCodeUrl && platformSettings.adminQrCodeUrl.trim().length > 5
                       ? platformSettings.adminQrCodeUrl
-                      : `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`upi://pay?pa=${platformSettings.adminUpiId || 'aquaconnect.admin@upi'}&pn=AquaConnect%20Admin&am=${selectedPlanId === 'plan_enterprise' ? (billingCycle === 'Yearly' ? 29999 : 2999) : (billingCycle === 'Yearly' ? 9999 : 999)}&cu=INR`)}`
+                      : `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`upi://pay?pa=${platformSettings.adminUpiId || 'aquaconnect.admin@upi'}&pn=AquaConnect%20Admin&am=${billingCycle === 'Yearly' ? 29999 : 2999}&cu=INR`)}`
                   }
                   alt="Admin Subscription QR Code"
                   style={{ width: '110px', height: '110px', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', padding: '4px', objectFit: 'contain' }}
@@ -1345,7 +1323,7 @@ const SupplierProfile = () => {
                   <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '6px' }}>Admin Helpline / WhatsApp:</div>
                   <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0284c7' }}>📞 {platformSettings.adminPhone || '8522828688'}</div>
                   <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px' }}>
-                    Payable Amount: <strong style={{ color: '#15803d' }}>₹{selectedPlanId === 'plan_enterprise' ? (billingCycle === 'Yearly' ? '29,999' : '2,999') : (billingCycle === 'Yearly' ? '9,999' : '999')}</strong>
+                    Payable Amount: <strong style={{ color: '#15803d' }}>₹{billingCycle === 'Yearly' ? '29,999' : '2,999'}</strong>
                   </div>
                 </div>
               </div>

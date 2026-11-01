@@ -256,9 +256,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         return;
       }
       finalPaymentReference = 'UPI$cleanUtr';
-      planAmount = _selectedPlanId == 'plan_enterprise'
-          ? (_billingCycle == 'Yearly' ? 29999.0 : 2999.0)
-          : (_billingCycle == 'Yearly' ? 9999.0 : 999.0);
+      planAmount = _billingCycle == 'Yearly' ? 29999.0 : 2999.0;
     }
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -898,7 +896,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       onPressed: () => _showObservabilityDialog(context),
                       icon: const Icon(Icons.speed, size: 14, color: AquaTheme.textSecondary),
                       label: const Text(
-                        'Release v1.0.2 System Status',
+                        'Release v1.0.5 System Status',
                         style: TextStyle(fontSize: 11, color: AquaTheme.textSecondary, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -913,9 +911,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   Widget _buildSubscriptionPlanSelector() {
-    final curAmount = _selectedPlanId == 'plan_enterprise'
-        ? (_billingCycle == 'Yearly' ? 29999 : 2999)
-        : (_billingCycle == 'Yearly' ? 9999 : 999);
+    final curAmount = _billingCycle == 'Yearly' ? 29999 : 2999;
 
     return Container(
       margin: const EdgeInsets.only(top: 10),
@@ -987,7 +983,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           ),
           const SizedBox(height: 10),
 
-          // Plan cards row
+          // Plan cards row: Free Trial (1 Day) vs Enterprise Plan
           Row(
             children: [
               _buildPlanOptionTile(
@@ -997,21 +993,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 subtitle: '1-Day Access',
                 isPopular: false,
               ),
-              const SizedBox(width: 6),
-              _buildPlanOptionTile(
-                id: 'plan_pro',
-                title: 'Pro Flow',
-                price: _billingCycle == 'Yearly' ? '₹9,999' : '₹999',
-                subtitle: _billingCycle == 'Yearly' ? '/year' : '/month',
-                isPopular: true,
-              ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               _buildPlanOptionTile(
                 id: 'plan_enterprise',
-                title: 'Enterprise',
+                title: 'Enterprise Plan',
                 price: _billingCycle == 'Yearly' ? '₹29,999' : '₹2,999',
                 subtitle: _billingCycle == 'Yearly' ? '/year' : '/month',
-                isPopular: false,
+                isPopular: true,
               ),
             ],
           ),
@@ -1233,7 +1221,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 const Icon(Icons.shield_outlined, color: AquaTheme.primary, size: 24),
                 const SizedBox(width: 10),
                 const Text(
-                  'Aqua connect v1.0.2 Monitoring',
+                  'Aqua connect v1.0.5 Monitoring',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 const Spacer(),

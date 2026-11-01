@@ -309,10 +309,10 @@ async function runTestSuite() {
     `Valid: ${subStatus.isValid}, Plan: ${subStatus.planId}`
   );
 
-  const renewedSub = renewSupplierSubscription('sup_001', 'plan_pro', 30);
+  const renewedSub = renewSupplierSubscription('sup_001', 'plan_enterprise', 30);
   assert(
-    renewedSub.planId === 'plan_pro' && renewedSub.status === 'Active',
-    'Admin renewal updates plan tier to Pro Flow with active status',
+    renewedSub.planId === 'plan_enterprise' && renewedSub.status === 'Active',
+    'Admin renewal updates plan tier to Enterprise with active status',
     `Tier: ${renewedSub.planId}`
   );
   const now = new Date();

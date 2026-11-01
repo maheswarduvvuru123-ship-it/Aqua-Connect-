@@ -165,8 +165,8 @@ const WelcomePage = () => {
       const planAmount = selectedPlanId === 'plan_starter' 
         ? 0 
         : (billingCycle === 'Yearly' 
-            ? (activePlan?.yearlyPrice || 9999) 
-            : (activePlan?.monthlyPrice || activePlan?.price || 999));
+            ? (activePlan?.yearlyPrice || 29999) 
+            : (activePlan?.monthlyPrice || activePlan?.price || 2999));
 
       const effectiveBillingCycle = selectedPlanId === 'plan_starter' ? '1-Day Free Trial' : billingCycle;
       const res = await signup({
@@ -1062,11 +1062,10 @@ const WelcomePage = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(95px, 1fr))', gap: '8px', marginBottom: '12px' }}>
                       {(() => {
                         const supplierPlans = plans
-                          .filter(p => (!p.targetRole || p.targetRole === 'supplier') && p.status !== 'draft');
+                          .filter(p => (!p.targetRole || p.targetRole === 'supplier') && p.status !== 'draft' && p.planId !== 'plan_pro' && p.price !== 999);
                         const activeList = supplierPlans.length > 0 ? supplierPlans : [
                           { planId: 'plan_starter', name: 'Free Trial (1 Day)', price: 0, monthlyPrice: 0, yearlyPrice: 0, orderLimit: 25 },
-                          { planId: 'plan_pro', name: 'Pro Flow', price: 999, monthlyPrice: 999, yearlyPrice: 9999, isPopular: true },
-                          { planId: 'plan_enterprise', name: 'Enterprise', price: 2999, monthlyPrice: 2999, yearlyPrice: 29999 }
+                          { planId: 'plan_enterprise', name: 'Enterprise', price: 2999, monthlyPrice: 2999, yearlyPrice: 29999, isPopular: true }
                         ];
 
                         return activeList.map(p => {
@@ -1132,8 +1131,8 @@ const WelcomePage = () => {
                       (() => {
                         const curPlan = plans.find(p => p.planId === selectedPlanId);
                         const curAmount = billingCycle === 'Yearly' 
-                          ? (curPlan?.yearlyPrice || ((curPlan?.monthlyPrice || curPlan?.price || 999) * 10)) 
-                          : (curPlan?.monthlyPrice || curPlan?.price || 999);
+                          ? (curPlan?.yearlyPrice || 29999) 
+                          : (curPlan?.monthlyPrice || curPlan?.price || 2999);
                         const adminUpi = platformSettings.adminUpiId || 'aquaconnect.admin@upi';
                         const adminPhone = platformSettings.adminPhone || '8522828688';
                         const dynamicQrUri = `upi://pay?pa=${adminUpi}&pn=AquaConnect%20Admin&am=${curAmount}&cu=INR`;
@@ -1396,11 +1395,10 @@ const WelcomePage = () => {
             {/* Plans Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
               {(() => {
-                const filtered = plans.filter(p => (p.targetRole || 'supplier') === 'supplier' && p.status !== 'draft');
+                const filtered = plans.filter(p => (p.targetRole || 'supplier') === 'supplier' && p.status !== 'draft' && p.planId !== 'plan_pro' && p.price !== 999);
                 const listToUse = filtered.length > 0 ? filtered : [
                   { planId: 'plan_starter', name: 'Free Trial (1 Day)', targetRole: 'supplier', price: 0, monthlyPrice: 0, yearlyPrice: 0, orderLimit: 25, features: ['1-Day Full Platform Access', 'Direct Cash & UPI Order Logging', 'Live Delivery Tracking', 'Automatic lock after 1 day'] },
-                  { planId: 'plan_pro', name: 'Pro Flow Plan', targetRole: 'supplier', price: 999, monthlyPrice: 999, yearlyPrice: 9999, isPopular: true, orderLimit: 500, features: ['Unlimited customer orders', 'Route optimization', 'Live delivery tracking', 'Priority support'] },
-                  { planId: 'plan_enterprise', name: 'Enterprise Aqua', targetRole: 'supplier', price: 2999, monthlyPrice: 2999, yearlyPrice: 29999, orderLimit: null, features: ['Unlimited orders', 'Multi-plant management', 'Custom invoices & branding', '24/7 dedicated support'] }
+                  { planId: 'plan_enterprise', name: 'Enterprise Aqua', targetRole: 'supplier', price: 2999, monthlyPrice: 2999, yearlyPrice: 29999, isPopular: true, orderLimit: null, features: ['Unlimited orders', 'Multi-plant management', 'Custom invoices & branding', '24/7 dedicated support'] }
                 ];
 
                 return listToUse.map(p => {

@@ -206,37 +206,6 @@ export const SEED_DATA = {
       isActive: true
     },
     {
-      planId: 'plan_pro',
-      targetRole: 'supplier',
-      name: 'Pro Flow Plan',
-      monthlyPrice: 999,
-      yearlyPrice: 9999, // 2 months free
-      price: 999,
-      billingCycle: 'Monthly or Yearly',
-      trialDays: 14,
-      status: 'published',
-      orderLimit: null, // unlimited
-      features: [
-        'Unlimited Customer Orders',
-        'Live Real-time Order & Payment Alerts',
-        'Custom Supplier UPI & QR Code Payments',
-        'Empty can return tracking',
-        'Priority Phone & WhatsApp Support'
-      ],
-      featureFlags: {
-        onlineOrdering: true,
-        routeOptimization: true,
-        prioritySupport: true,
-        analyticsExport: true
-      },
-      limits: {
-        maxOrdersPerMonth: 10000,
-        maxDeliveryStaff: 10
-      },
-      isPopular: true,
-      isActive: true
-    },
-    {
       planId: 'plan_enterprise',
       targetRole: 'supplier',
       name: 'Enterprise Aqua',
@@ -2181,9 +2150,9 @@ export const getPendingSupplierApprovals = () => {
         subscriptionId: s.subscriptionId,
         supplierId: s.supplierId,
         supplierName: s.supplierName || 'Water Supplier Plant',
-        planName: s.planName || 'Pro Flow Plan',
+        planName: s.planName || 'Enterprise Aqua',
         billingCycle: s.billingCycle || 'Monthly',
-        amount: s.amount || 999,
+        amount: s.amount || 2999,
         paymentReference: s.paymentReference || 'N/A',
         paymentMethod: s.paymentMethod || 'UPI Platform Direct',
         status: 'Pending Verification',
@@ -2202,9 +2171,9 @@ export const getPendingSupplierApprovals = () => {
           subscriptionId: s.activeSubscriptionId || `sub_gen_${id}`,
           supplierId: id,
           supplierName: s.businessName || s.plantName || s.ownerName || 'Water Plant',
-          planName: s.planName || 'Pro Flow Plan',
+          planName: s.planName || 'Enterprise Aqua',
           billingCycle: s.billingCycle || 'Monthly',
-          amount: s.planName?.toLowerCase().includes('enterprise') ? 2999 : 999,
+          amount: s.amount || 2999,
           paymentReference: s.paymentReference || 'Pending UTR Verification',
           paymentMethod: 'UPI Direct',
           status: 'Pending Verification',
@@ -2224,9 +2193,9 @@ export const getPendingSupplierApprovals = () => {
           subscriptionId: `sub_gen_${id}`,
           supplierId: id,
           supplierName: u.name || `${u.email}'s Water Plant`,
-          planName: u.planName || 'Pro Flow Plan',
+          planName: u.planName || 'Enterprise Aqua',
           billingCycle: u.billingCycle || 'Monthly',
-          amount: u.planName?.toLowerCase().includes('enterprise') ? 2999 : 999,
+          amount: u.amount || 2999,
           paymentReference: 'Pending UTR Verification',
           paymentMethod: 'UPI Direct',
           status: 'Pending Verification',
@@ -2259,9 +2228,9 @@ export const verifySupplierSubscription = (subscriptionId, adminActor) => {
     const isTrial = (suppDoc?.planName || userDoc?.planName || '').toLowerCase().includes('trial') || 
                     (suppDoc?.billingCycle || userDoc?.billingCycle || '').toLowerCase().includes('trial') ||
                     suppDoc?.isTrial || userDoc?.isTrial || (!suppDoc?.planName && !userDoc?.planName);
-    const planName = isTrial ? 'Free Trial (1 Day)' : (suppDoc?.planName || userDoc?.planName || 'Pro Flow Plan');
-    const planId = isTrial ? 'plan_starter' : (planName.toLowerCase().includes('enterprise') ? 'plan_enterprise' : 'plan_pro');
-    const amount = isTrial ? 0 : (planName.toLowerCase().includes('enterprise') ? 2999 : 999);
+    const planName = isTrial ? 'Free Trial (1 Day)' : (suppDoc?.planName || userDoc?.planName || 'Enterprise Aqua');
+    const planId = isTrial ? 'plan_starter' : 'plan_enterprise';
+    const amount = isTrial ? 0 : 2999;
     const cycle = isTrial ? '1-Day Free Trial' : (suppDoc?.billingCycle || 'Monthly');
     const trialDays = isTrial ? 1 : 30;
     const expiry = new Date(now);

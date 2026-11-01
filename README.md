@@ -48,7 +48,7 @@ It features a dual-sided architecture:
 - **Live Orders Center**: Full cross-plant visibility, direct supplier reassignment, order status transition tracking with live pub-sub sync (no page reload).
 - **Direct Payment Verification Queue**: Review direct Cash & UPI payments with UTR/transaction references. Admin actions: `Verify`, `Dispute`, or `Refund`. Direct payments remain `Reported / Pending Verification` until confirmed.
 - **User & Supplier Directory**: Manage plant suppliers, delivery drivers, and customers; toggle accounts active/suspended; switch user roles.
-- **Platform Subscriptions Management**: Track and manage supplier SaaS subscriptions (`Free Starter ₹0`, `Pro Flow ₹999/mo`, `Enterprise Aqua ₹2,499/mo`) with renewal actions.
+- **Platform Subscriptions Management**: Track and manage supplier SaaS subscriptions (`Free Starter ₹0`, `Enterprise Aqua ₹2,999/mo`) with renewal actions.
 - **Financial & Delivery Reports**: **Strict Separation of Funds** (PRD Section 10): separates water order value (retained 100% by suppliers via direct payment) from Aqua Connect platform SaaS subscription licensing revenue. Includes CSV report exports.
 - **Tamper-Evident Audit Logs**: Complete chronological history of orders created, status changes, direct payments recorded, and admin verifications.
 
@@ -214,7 +214,7 @@ payments/{paymentId}
 
 supplier_subscriptions/{subscriptionId}
   ├── supplierId: string
-  ├── planId: string ("plan_starter" | "plan_pro" | "plan_enterprise")
+  ├── planId: string ("plan_starter" | "plan_enterprise")
   ├── planName: string
   ├── amount: number
   ├── status: string ("Active" | "Expired")

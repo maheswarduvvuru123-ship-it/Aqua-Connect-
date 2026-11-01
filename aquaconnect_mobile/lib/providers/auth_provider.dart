@@ -424,7 +424,7 @@ class AuthProvider extends ChangeNotifier {
       final isFree = (planId == 'plan_starter' || planAmount == 0.0);
       final effectivePlanName = planId == 'plan_starter'
           ? 'Free Trial (1 Day)'
-          : (planId == 'plan_enterprise' ? 'Enterprise Plan' : 'Pro Flow Plan');
+          : 'Enterprise Plan';
       final effectiveBillingCycle = isFree ? '1-Day Free Trial' : billingCycle;
       final initialSubscriptionStatus = isFree ? 'Active' : 'Pending Verification';
 

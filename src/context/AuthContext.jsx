@@ -554,8 +554,11 @@ export const AuthProvider = ({ children }) => {
         phone: phone || '',
         role: role || 'customer',
         accountStatus: initialAccountStatus,
-        planName: isSupplier ? (planId === 'plan_starter' ? 'Free Trial (1 Day)' : planId === 'plan_enterprise' ? 'Enterprise Aqua' : 'Pro Flow Plan') : null,
+        status: initialAccountStatus,
+        planId: isSupplier ? planId : null,
+        planName: isSupplier ? (planId === 'plan_starter' ? 'Free Trial (1 Day)' : planId === 'plan_enterprise' ? 'Enterprise Aqua' : 'Pro Flow Plan') : 'Free Consumer',
         billingCycle: isSupplier ? (isFreePlan ? '1-Day Free Trial' : billingCycle) : null,
+        subscriptionStatus: isSupplier ? initialAccountStatus : 'Active',
         isTrial: isSupplier && isFreePlan,
         trialStartDate: isSupplier && isFreePlan ? new Date().toISOString() : null,
         trialEndDate: isSupplier && isFreePlan ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
@@ -589,8 +592,10 @@ export const AuthProvider = ({ children }) => {
           upiPhoneNumber: phone || '+91 98765 43210',
           qrCodeUrl: '',
           planName: newUser.planName,
+          planId: planId,
           billingCycle,
           status: initialAccountStatus,
+          accountStatus: initialAccountStatus,
           isVerified: isFreePlan,
           deliveryAreas: ['Gachibowli', 'Madhapur', 'Hitec City'],
           createdAt: new Date().toISOString()
@@ -619,6 +624,7 @@ export const AuthProvider = ({ children }) => {
           totalAmount: 0,
           pendingPayment: 0,
           status: 'Active',
+          accountStatus: 'Active',
           createdAt: new Date().toISOString()
         });
       }

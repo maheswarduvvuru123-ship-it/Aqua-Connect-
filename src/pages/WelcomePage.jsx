@@ -1066,7 +1066,7 @@ const WelcomePage = () => {
                         const activeList = supplierPlans.length > 0 ? supplierPlans : [
                           { planId: 'plan_starter', name: 'Free Trial (1 Day)', price: 0, monthlyPrice: 0, yearlyPrice: 0, orderLimit: 25 },
                           { planId: 'plan_pro', name: 'Pro Flow', price: 999, monthlyPrice: 999, yearlyPrice: 9999, isPopular: true },
-                          { planId: 'plan_enterprise', name: 'Enterprise', price: 2499, monthlyPrice: 2499, yearlyPrice: 24999 }
+                          { planId: 'plan_enterprise', name: 'Enterprise', price: 2999, monthlyPrice: 2999, yearlyPrice: 29999 }
                         ];
 
                         return activeList.map(p => {
@@ -1400,7 +1400,7 @@ const WelcomePage = () => {
                 const listToUse = filtered.length > 0 ? filtered : [
                   { planId: 'plan_starter', name: 'Free Trial (1 Day)', targetRole: 'supplier', price: 0, monthlyPrice: 0, yearlyPrice: 0, orderLimit: 25, features: ['1-Day Full Platform Access', 'Direct Cash & UPI Order Logging', 'Live Delivery Tracking', 'Automatic lock after 1 day'] },
                   { planId: 'plan_pro', name: 'Pro Flow Plan', targetRole: 'supplier', price: 999, monthlyPrice: 999, yearlyPrice: 9999, isPopular: true, orderLimit: 500, features: ['Unlimited customer orders', 'Route optimization', 'Live delivery tracking', 'Priority support'] },
-                  { planId: 'plan_enterprise', name: 'Enterprise Aqua', targetRole: 'supplier', price: 2499, monthlyPrice: 2499, yearlyPrice: 24999, orderLimit: null, features: ['Unlimited orders', 'Multi-plant management', 'Custom invoices & branding', '24/7 dedicated support'] }
+                  { planId: 'plan_enterprise', name: 'Enterprise Aqua', targetRole: 'supplier', price: 2999, monthlyPrice: 2999, yearlyPrice: 29999, orderLimit: null, features: ['Unlimited orders', 'Multi-plant management', 'Custom invoices & branding', '24/7 dedicated support'] }
                 ];
 
                 return listToUse.map(p => {

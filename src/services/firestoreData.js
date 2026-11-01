@@ -240,9 +240,9 @@ export const SEED_DATA = {
       planId: 'plan_enterprise',
       targetRole: 'supplier',
       name: 'Enterprise Aqua',
-      monthlyPrice: 2499,
-      yearlyPrice: 24999, // 2 months free
-      price: 2499,
+      monthlyPrice: 2999,
+      yearlyPrice: 29999, // 2 months free
+      price: 2999,
       billingCycle: 'Monthly or Yearly',
       trialDays: 30,
       status: 'published',
@@ -2204,7 +2204,7 @@ export const getPendingSupplierApprovals = () => {
           supplierName: s.businessName || s.plantName || s.ownerName || 'Water Plant',
           planName: s.planName || 'Pro Flow Plan',
           billingCycle: s.billingCycle || 'Monthly',
-          amount: s.planName?.toLowerCase().includes('enterprise') ? 2499 : 999,
+          amount: s.planName?.toLowerCase().includes('enterprise') ? 2999 : 999,
           paymentReference: s.paymentReference || 'Pending UTR Verification',
           paymentMethod: 'UPI Direct',
           status: 'Pending Verification',
@@ -2226,7 +2226,7 @@ export const getPendingSupplierApprovals = () => {
           supplierName: u.name || `${u.email}'s Water Plant`,
           planName: u.planName || 'Pro Flow Plan',
           billingCycle: u.billingCycle || 'Monthly',
-          amount: u.planName?.toLowerCase().includes('enterprise') ? 2499 : 999,
+          amount: u.planName?.toLowerCase().includes('enterprise') ? 2999 : 999,
           paymentReference: 'Pending UTR Verification',
           paymentMethod: 'UPI Direct',
           status: 'Pending Verification',
@@ -2261,7 +2261,7 @@ export const verifySupplierSubscription = (subscriptionId, adminActor) => {
                     suppDoc?.isTrial || userDoc?.isTrial || (!suppDoc?.planName && !userDoc?.planName);
     const planName = isTrial ? 'Free Trial (1 Day)' : (suppDoc?.planName || userDoc?.planName || 'Pro Flow Plan');
     const planId = isTrial ? 'plan_starter' : (planName.toLowerCase().includes('enterprise') ? 'plan_enterprise' : 'plan_pro');
-    const amount = isTrial ? 0 : (planName.toLowerCase().includes('enterprise') ? 2499 : 999);
+    const amount = isTrial ? 0 : (planName.toLowerCase().includes('enterprise') ? 2999 : 999);
     const cycle = isTrial ? '1-Day Free Trial' : (suppDoc?.billingCycle || 'Monthly');
     const trialDays = isTrial ? 1 : 30;
     const expiry = new Date(now);

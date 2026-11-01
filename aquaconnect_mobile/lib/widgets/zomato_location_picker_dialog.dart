@@ -53,13 +53,16 @@ const List<LocalityPreset> popularLocalities = [
   LocalityPreset(name: 'Begumpet', city: 'Hyderabad', pincode: '500016', lat: 17.4448, lng: 78.4665),
 ];
 
-/// Checks permissions and gets the exact device GPS / browser location (NOT IP-based)
+/// Checks permissions and gets the exact device GPS / network location (NOT IP-based)
 Future<Position?> getExactDevicePosition() async {
   try {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      debugPrint('Device location service is disabled');
-      return null;
+      debugPrint('Device location service is disabled, attempting last known or prompt');
+      try {
+        final lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) return lastKnown;
+      } catch (_) {}
     }
 
     LocationPermission permission = await Geolocator.checkPermission();
@@ -76,24 +79,44 @@ Future<Position?> getExactDevicePosition() async {
       return null;
     }
 
+    // Check last known position for instant location
+    try {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        final age = DateTime.now().difference(lastKnown.timestamp);
+        if (age.inMinutes < 15) {
+          return lastKnown;
+        }
+      }
+    } catch (_) {}
+
     try {
       return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
-          timeLimit: Duration(seconds: 12),
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 7),
         ),
       );
     } catch (e) {
-      debugPrint('Error in getCurrentPosition: $e');
+      debugPrint('Error in getCurrentPosition high accuracy: $e, falling back to medium');
       try {
-        return await Geolocator.getLastKnownPosition();
+        return await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 5),
+          ),
+        );
       } catch (_) {
-        return null;
+        return await Geolocator.getLastKnownPosition();
       }
     }
   } catch (e) {
     debugPrint('Safely caught location service error on device: $e');
-    return null;
+    try {
+      return await Geolocator.getLastKnownPosition();
+    } catch (_) {
+      return null;
+    }
   }
 }
 
@@ -180,11 +203,35 @@ Future<LocationResult?> reverseGeocodeCoordinates(double lat, double lng) async 
     debugPrint('BigDataCloud reverse geocode error: $e');
   }
 
+  // 3. Fallback: Proximity match against known Telangana / Andhra Pradesh localities
+  LocalityPreset? closest;
+  double minDist = double.infinity;
+  for (final p in popularLocalities) {
+    final dLat = lat - p.lat;
+    final dLng = lng - p.lng;
+    final distSq = (dLat * dLat) + (dLng * dLng);
+    if (distSq < minDist) {
+      minDist = distSq;
+      closest = p;
+    }
+  }
+
+  if (closest != null && minDist < 0.35) {
+    return LocationResult(
+      formattedAddress: '${closest.name}, ${closest.city}, ${closest.pincode}',
+      locality: closest.name,
+      city: closest.city,
+      pincode: closest.pincode,
+      lat: lat,
+      lng: lng,
+    );
+  }
+
   return LocationResult(
-    formattedAddress: 'GPS: ${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
-    locality: 'GPS Location',
-    city: 'Local Area',
-    pincode: '',
+    formattedAddress: 'Water Delivery Area (${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)})',
+    locality: 'Local Area',
+    city: 'Hyderabad Region',
+    pincode: '500081',
     lat: lat,
     lng: lng,
   );

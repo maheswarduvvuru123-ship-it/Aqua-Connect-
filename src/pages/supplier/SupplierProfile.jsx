@@ -1331,17 +1331,21 @@ const SupplierProfile = () => {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                 <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`upi://pay?pa=${platformSettings.adminUpiId || 'aquaconnect.admin@upi'}&pn=AquaConnect%20Admin&am=${selectedPlanId === 'plan_enterprise' ? (billingCycle === 'Yearly' ? 24999 : 2499) : (billingCycle === 'Yearly' ? 9999 : 999)}&cu=INR`)}`}
+                  src={
+                    platformSettings.adminQrCodeUrl && platformSettings.adminQrCodeUrl.trim().length > 5
+                      ? platformSettings.adminQrCodeUrl
+                      : `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`upi://pay?pa=${platformSettings.adminUpiId || 'aquaconnect.admin@upi'}&pn=AquaConnect%20Admin&am=${selectedPlanId === 'plan_enterprise' ? (billingCycle === 'Yearly' ? 29999 : 2999) : (billingCycle === 'Yearly' ? 9999 : 999)}&cu=INR`)}`
+                  }
                   alt="Admin Subscription QR Code"
-                  style={{ width: '110px', height: '110px', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', padding: '4px' }}
+                  style={{ width: '110px', height: '110px', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', padding: '4px', objectFit: 'contain' }}
                 />
                 <div style={{ flex: 1, minWidth: '180px' }}>
                   <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Admin Official UPI ID:</div>
                   <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' }}>{platformSettings.adminUpiId || 'aquaconnect.admin@upi'}</div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '6px' }}>Admin Helpline / WhatsApp:</div>
-                  <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0284c7' }}>📞 8522828688</div>
+                  <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0284c7' }}>📞 {platformSettings.adminPhone || '8522828688'}</div>
                   <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px' }}>
-                    Payable Amount: <strong style={{ color: '#15803d' }}>₹{selectedPlanId === 'plan_enterprise' ? (billingCycle === 'Yearly' ? '24,999' : '2,499') : (billingCycle === 'Yearly' ? '9,999' : '999')}</strong>
+                    Payable Amount: <strong style={{ color: '#15803d' }}>₹{selectedPlanId === 'plan_enterprise' ? (billingCycle === 'Yearly' ? '29,999' : '2,999') : (billingCycle === 'Yearly' ? '9,999' : '999')}</strong>
                   </div>
                 </div>
               </div>

@@ -17,7 +17,7 @@ const firebaseConfig = {
 
 // Check if user has supplied actual credentials or using default demo setup
 export const isLiveFirebaseConfigured = () => {
-  const key = env.VITE_FIREBASE_API_KEY;
+  const key = firebaseConfig.apiKey;
   return Boolean(key && key !== "your_api_key_here" && !key.includes("DummyKey"));
 };
 

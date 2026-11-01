@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_performance/firebase_performance.dart';
 import '../providers/auth_provider.dart';
 import '../providers/water_delivery_provider.dart';
+import '../services/platform_config_service.dart';
 import '../utils/theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/zomato_location_picker_dialog.dart';
@@ -30,6 +32,22 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   bool _isDetectingLocation = false;
   String _selectedPlanId = 'plan_starter';
   String _billingCycle = 'Monthly';
+
+  StreamSubscription<PlatformSettings>? _platformConfigSub;
+  PlatformSettings _platformSettings = PlatformConfigService.instance.settings;
+
+  @override
+  void initState() {
+    super.initState();
+    _platformSettings = PlatformConfigService.instance.settings;
+    _platformConfigSub = PlatformConfigService.instance.stream.listen((settings) {
+      if (mounted) {
+        setState(() {
+          _platformSettings = settings;
+        });
+      }
+    });
+  }
 
   Future<void> _handleGpsAutoDetect() async {
     setState(() => _isDetectingLocation = true);
@@ -114,6 +132,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   void dispose() {
+    _platformConfigSub?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     _nameController.dispose();
@@ -219,6 +238,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     }
     final formattedPhone = cleanPhone.length == 10 ? '+91 $cleanPhone' : '+$cleanPhone';
 
+    if (address.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please provide your address or tap "Use GPS" / select a locality chip')),
+      );
+      return;
+    }
+
     String finalPaymentReference = '';
     double planAmount = 0.0;
     if (_selectedRole == 'supplier' && _selectedPlanId != 'plan_starter') {
@@ -231,7 +257,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       }
       finalPaymentReference = 'UPI$cleanUtr';
       planAmount = _selectedPlanId == 'plan_enterprise'
-          ? (_billingCycle == 'Yearly' ? 24999.0 : 2499.0)
+          ? (_billingCycle == 'Yearly' ? 29999.0 : 2999.0)
           : (_billingCycle == 'Yearly' ? 9999.0 : 999.0);
     }
 
@@ -725,9 +751,43 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             ),
                           ),
+                          const SizedBox(height: 8),
+
+                          // Quick 1-Tap Area Selection Chips
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '⚡ One-Tap Quick Select Locality:',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                              ),
+                              const SizedBox(height: 4),
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    _buildQuickLocalityChip('Vaddagandla (NH40)', 'Vaddagandla (NH40), Allagadda, 518112'),
+                                    const SizedBox(width: 6),
+                                    _buildQuickLocalityChip('Allagadda Town', 'Allagadda Town, Nandyal Dist, 518543'),
+                                    const SizedBox(width: 6),
+                                    _buildQuickLocalityChip('Madhapur', 'Madhapur, Hitec City, Hyderabad, 500081'),
+                                    const SizedBox(width: 6),
+                                    _buildQuickLocalityChip('Hitec City', 'Hitec City, Kondapur, Hyderabad, 500084'),
+                                    const SizedBox(width: 6),
+                                    _buildQuickLocalityChip('Gachibowli', 'Gachibowli, Financial District, Hyderabad, 500032'),
+                                    const SizedBox(width: 6),
+                                    _buildQuickLocalityChip('Nandyal', 'Nandyal Central, Nandyal Dist, 518501'),
+                                    const SizedBox(width: 6),
+                                    _buildQuickLocalityChip('Kurnool', 'Kurnool City, Andhra Pradesh, 518001'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
                           if (_addressController.text.isNotEmpty)
                             const Padding(
-                              padding: EdgeInsets.only(top: 6.0),
+                              padding: EdgeInsets.only(top: 8.0),
                               child: Row(
                                 children: [
                                   Icon(Icons.check_circle, color: Colors.green, size: 13),
@@ -832,24 +892,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Admin Portal Access Link
-                  Center(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      icon: const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF475569)),
-                      label: const Text(
-                        '🛡️ Open Admin Portal',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
-                      ),
-                      onPressed: () => _showAdminPortalDialog(context),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
                   // Production Observability Link
                   Center(
                     child: TextButton.icon(
@@ -872,9 +914,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   Widget _buildSubscriptionPlanSelector() {
     final curAmount = _selectedPlanId == 'plan_enterprise'
-        ? (_billingCycle == 'Yearly' ? 24999 : 2499)
+        ? (_billingCycle == 'Yearly' ? 29999 : 2999)
         : (_billingCycle == 'Yearly' ? 9999 : 999);
-    final qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${Uri.encodeComponent('upi://pay?pa=aquaconnect.admin@upi&pn=AquaConnect%20Admin&am=$curAmount&cu=INR')}';
 
     return Container(
       margin: const EdgeInsets.only(top: 10),
@@ -968,7 +1009,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               _buildPlanOptionTile(
                 id: 'plan_enterprise',
                 title: 'Enterprise',
-                price: _billingCycle == 'Yearly' ? '₹24,999' : '₹2,499',
+                price: _billingCycle == 'Yearly' ? '₹29,999' : '₹2,999',
                 subtitle: _billingCycle == 'Yearly' ? '/year' : '/month',
                 isPopular: false,
               ),
@@ -1002,20 +1043,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 children: [
                   Row(
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          qrSrc,
-                          width: 75,
-                          height: 75,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 75,
-                            height: 75,
-                            color: Colors.grey.shade200,
-                            child: const Icon(Icons.qr_code, size: 36),
-                          ),
-                        ),
+                      AdminSubscriptionQrWidget(
+                        amount: curAmount.toDouble(),
+                        size: 78,
+                        settings: _platformSettings,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -1030,8 +1061,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                               '₹$curAmount ($_billingCycle)',
                               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF7C3AED)),
                             ),
-                            const Text('Admin UPI: aquaconnect.admin@upi', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
-                            const Text('Phone / GPay: 8522828688', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                            Text('Admin UPI: ${_platformSettings.adminUpiId}', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                            Text('Phone / GPay: ${_platformSettings.adminPhone}', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ),
@@ -1135,65 +1166,52 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     );
   }
 
-  void _showAdminPortalDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.admin_panel_settings, color: AquaTheme.primary, size: 26),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text('Aqua connect Admin Portal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Access platform administrative management, supplier verification, plan approvals, and system analytics via web:',
-              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFCBD5E1)),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('🌐 Portal URL:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
-                  SelectableText(
-                    'https://aqua-ec4f5.web.app/#admin',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AquaTheme.primary),
-                  ),
-                  SizedBox(height: 8),
-                  Text('🔑 Admin Email:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
-                  SelectableText('admin@aquaconnect.com', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 8),
-                  Text('🔒 Password:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
-                  SelectableText('admin123', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 8),
-                  Text('📞 Admin Support Phone:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
-                  SelectableText('+91 85228 28688', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AquaTheme.primary),
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+  Widget _buildQuickLocalityChip(String label, String fullAddress) {
+    final isSelected = _addressController.text.contains(label);
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _addressController.text = fullAddress;
+        });
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('📍 Selected: $label'),
+            backgroundColor: Colors.green[800],
+            duration: const Duration(seconds: 2),
           ),
-        ],
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFE0F2FE) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFCBD5E1),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.place,
+              size: 12,
+              color: isSelected ? const Color(0xFF0284C7) : const Color(0xFF64748B),
+            ),
+            const SizedBox(width: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? const Color(0xFF0369A1) : const Color(0xFF334155),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

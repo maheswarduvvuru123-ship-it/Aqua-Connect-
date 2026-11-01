@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/platform_config_service.dart';
 import '../utils/theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/zomato_location_picker_dialog.dart';
@@ -1765,9 +1766,8 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
           final curAmount = selectedPlan == 'plan_enterprise'
-              ? (billingCycle == 'Yearly' ? 24999 : 2499)
+              ? (billingCycle == 'Yearly' ? 29999 : 2999)
               : (billingCycle == 'Yearly' ? 9999 : 999);
-          final qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${Uri.encodeComponent('upi://pay?pa=aquaconnect.admin@upi&pn=AquaConnect%20Admin&am=$curAmount&cu=INR')}';
 
           return Padding(
             padding: EdgeInsets.only(
@@ -1920,7 +1920,7 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
                                 const Text('Enterprise Plan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
                                 const SizedBox(height: 4),
                                 Text(
-                                  billingCycle == 'Yearly' ? '₹24,999/yr' : '₹2,499/mo',
+                                  billingCycle == 'Yearly' ? '₹29,999/yr' : '₹2,999/mo',
                                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF7C3AED)),
                                 ),
                                 const SizedBox(height: 4),
@@ -1944,20 +1944,10 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
                     ),
                     child: Row(
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            qrUrl,
-                            width: 80,
-                            height: 80,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 80,
-                              height: 80,
-                              color: Colors.grey.shade300,
-                              child: const Icon(Icons.qr_code, size: 40),
-                            ),
-                          ),
+                        AdminSubscriptionQrWidget(
+                          amount: curAmount.toDouble(),
+                          size: 80,
+                          settings: PlatformConfigService.instance.settings,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1968,8 +1958,8 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
                               const SizedBox(height: 2),
                               Text('₹$curAmount ($billingCycle)', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF7C3AED))),
                               const SizedBox(height: 2),
-                              const Text('Admin UPI: aquaconnect.admin@upi', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
-                              const Text('Helpline / GPay: 8522828688', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                              Text('Admin UPI: ${PlatformConfigService.instance.settings.adminUpiId}', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                              Text('Helpline / GPay: ${PlatformConfigService.instance.settings.adminPhone}', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),

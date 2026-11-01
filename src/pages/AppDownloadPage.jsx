@@ -204,7 +204,7 @@ const AppDownloadPage = ({ onBackToApp }) => {
             }}>
               <div>
                 <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0, fontWeight: 600 }}>VERSION</p>
-                <p style={{ fontSize: '1rem', color: '#0f172a', margin: 0, fontWeight: 800 }}>v1.0.0 (Release)</p>
+                <p style={{ fontSize: '1rem', color: '#0f172a', margin: 0, fontWeight: 800 }}>v1.0.2 (Release)</p>
               </div>
               <div>
                 <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0, fontWeight: 600 }}>SIZE</p>

@@ -68,6 +68,10 @@ class AuthProvider extends ChangeNotifier {
             openingTime: data['openingTime']?.toString(),
             closingTime: data['closingTime']?.toString(),
             isOpenToday: data['isOpenToday'] == true || data['isOpenToday'] == null,
+            planName: data['planName']?.toString(),
+            planId: data['planId']?.toString(),
+            billingCycle: data['billingCycle']?.toString(),
+            subscriptionStatus: (data['subscriptionStatus'] ?? data['status'])?.toString(),
             createdAt: data['createdAt'] != null
                 ? DateTime.tryParse(data['createdAt'].toString()) ?? DateTime.now()
                 : DateTime.now(),
@@ -316,6 +320,10 @@ class AuthProvider extends ChangeNotifier {
         openingTime: data['openingTime']?.toString(),
         closingTime: data['closingTime']?.toString(),
         isOpenToday: data['isOpenToday'] == true || data['isOpenToday'] == null,
+        planName: data['planName']?.toString(),
+        planId: data['planId']?.toString(),
+        billingCycle: data['billingCycle']?.toString(),
+        subscriptionStatus: (data['subscriptionStatus'] ?? data['status'])?.toString(),
         createdAt: parsedCreatedAt,
       );
       _userRole = registeredRole;
@@ -361,6 +369,10 @@ class AuthProvider extends ChangeNotifier {
     required String role,
     String? phone,
     String? address,
+    String planId = 'plan_starter',
+    String billingCycle = '1-Day Free Trial',
+    String paymentReference = '',
+    double planAmount = 0.0,
   }) async {
     _isLoading = true;
     notifyListeners();
@@ -409,6 +421,20 @@ class AuthProvider extends ChangeNotifier {
         await fbUser.updateDisplayName(cleanName);
       } catch (_) {}
 
+      final isFree = (planId == 'plan_starter' || planAmount == 0.0);
+      final effectivePlanName = planId == 'plan_starter'
+          ? 'Free Trial (1 Day)'
+          : (planId == 'plan_enterprise' ? 'Enterprise Plan' : 'Pro Flow Plan');
+      final effectiveBillingCycle = isFree ? '1-Day Free Trial' : billingCycle;
+      final initialSubscriptionStatus = isFree ? 'Active' : 'Pending Verification';
+
+      final nowIso = DateTime.now().toIso8601String();
+      final expiryIso = isFree
+          ? DateTime.now().add(const Duration(days: 1)).toIso8601String()
+          : (effectiveBillingCycle == 'Yearly'
+              ? DateTime.now().add(const Duration(days: 365)).toIso8601String()
+              : DateTime.now().add(const Duration(days: 30)).toIso8601String());
+
       final userMap = {
         'uid': uid,
         'name': cleanName,
@@ -417,8 +443,13 @@ class AuthProvider extends ChangeNotifier {
         'address': cleanAddress,
         'city': 'Hyderabad',
         'role': cleanRole,
-        'createdAt': DateTime.now().toIso8601String(),
-        'updatedAt': DateTime.now().toIso8601String(),
+        'planId': cleanRole == 'supplier' ? planId : null,
+        'planName': cleanRole == 'supplier' ? effectivePlanName : 'Free Consumer',
+        'billingCycle': cleanRole == 'supplier' ? effectiveBillingCycle : null,
+        'subscriptionStatus': cleanRole == 'supplier' ? initialSubscriptionStatus : 'Active',
+        'paymentReference': paymentReference.isNotEmpty ? paymentReference : (isFree ? 'FREE_TRIAL_1DAY' : null),
+        'createdAt': nowIso,
+        'updatedAt': nowIso,
       };
 
       // 2. Store in Firestore users collection
@@ -437,11 +468,31 @@ class AuthProvider extends ChangeNotifier {
           'totalAmount': 0.0,
           'pendingPayment': 0.0,
           'status': 'Active',
-          'createdAt': DateTime.now().toIso8601String(),
-          'updatedAt': DateTime.now().toIso8601String(),
+          'createdAt': nowIso,
+          'updatedAt': nowIso,
         }, SetOptions(merge: true));
       } else {
-        // 4. If Supplier, store in suppliers collection
+        // 4. If Supplier, store in supplier_subscriptions and suppliers collections
+        final subId = 'sub_${DateTime.now().millisecondsSinceEpoch}';
+        await FirebaseFirestore.instance.collection('supplier_subscriptions').doc(subId).set({
+          'subscriptionId': subId,
+          'supplierId': uid,
+          'supplierName': cleanName.isNotEmpty ? cleanName : 'Aqua connect Certified Water Plant',
+          'planId': planId,
+          'planName': effectivePlanName,
+          'billingCycle': effectiveBillingCycle,
+          'amount': isFree ? 0.0 : planAmount,
+          'status': initialSubscriptionStatus,
+          'isTrial': isFree,
+          'trialDays': isFree ? 1 : 0,
+          'startDate': nowIso,
+          'endDate': expiryIso,
+          'paymentReference': paymentReference.isNotEmpty ? paymentReference : (isFree ? 'FREE_TRIAL_1DAY' : 'PENDING_REF'),
+          'paymentMethod': isFree ? 'Free Trial (1 Day)' : 'UPI Platform Direct',
+          'createdAt': nowIso,
+          'updatedAt': nowIso,
+        });
+
         await FirebaseFirestore.instance.collection('suppliers').doc(uid).set({
           'supplierId': uid,
           'businessName': cleanName.isNotEmpty ? cleanName : 'Aqua connect Certified Water Plant',
@@ -450,7 +501,17 @@ class AuthProvider extends ChangeNotifier {
           'email': cleanEmail,
           'address': cleanAddress.isNotEmpty ? cleanAddress : 'Water Plant Facility',
           'city': 'Hyderabad',
-          'createdAt': DateTime.now().toIso8601String(),
+          'planId': planId,
+          'planName': effectivePlanName,
+          'billingCycle': effectiveBillingCycle,
+          'activeSubscriptionId': subId,
+          'status': initialSubscriptionStatus,
+          'isTrial': isFree,
+          'trialStartDate': isFree ? nowIso : null,
+          'trialEndDate': isFree ? expiryIso : null,
+          'paymentReference': paymentReference,
+          'createdAt': nowIso,
+          'updatedAt': nowIso,
         }, SetOptions(merge: true));
       }
 
@@ -462,6 +523,10 @@ class AuthProvider extends ChangeNotifier {
         role: cleanRole,
         address: cleanAddress,
         city: 'Hyderabad',
+        planId: cleanRole == 'supplier' ? planId : null,
+        planName: cleanRole == 'supplier' ? effectivePlanName : 'Free Consumer',
+        billingCycle: cleanRole == 'supplier' ? effectiveBillingCycle : null,
+        subscriptionStatus: cleanRole == 'supplier' ? initialSubscriptionStatus : 'Active',
         createdAt: DateTime.now(),
       );
       _userRole = cleanRole;
@@ -473,6 +538,129 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return 'Registration failed: ${e.toString()}';
+    }
+  }
+
+  /// Request a subscription plan upgrade or renewal (Pro Flow or Enterprise)
+  Future<String?> requestSubscriptionUpgrade({
+    required String planId,
+    required String planName,
+    required String billingCycle,
+    required String paymentReference,
+    required double amount,
+  }) async {
+    if (_currentUser == null) return 'No active user session';
+    try {
+      final uid = _currentUser!.uid;
+      final nowIso = DateTime.now().toIso8601String();
+      final expiryIso = billingCycle == 'Yearly'
+          ? DateTime.now().add(const Duration(days: 365)).toIso8601String()
+          : DateTime.now().add(const Duration(days: 30)).toIso8601String();
+
+      final subId = 'sub_${DateTime.now().millisecondsSinceEpoch}';
+
+      // 1. Create subscription entry in supplier_subscriptions
+      await FirebaseFirestore.instance.collection('supplier_subscriptions').doc(subId).set({
+        'subscriptionId': subId,
+        'supplierId': uid,
+        'supplierName': _currentUser!.name,
+        'planId': planId,
+        'planName': planName,
+        'billingCycle': billingCycle,
+        'amount': amount,
+        'status': 'Pending Verification',
+        'isTrial': false,
+        'startDate': nowIso,
+        'endDate': expiryIso,
+        'paymentReference': paymentReference,
+        'paymentMethod': 'UPI Platform Direct',
+        'createdAt': nowIso,
+        'updatedAt': nowIso,
+      });
+
+      // 2. Notify supplier document of pending upgrade request
+      await FirebaseFirestore.instance.collection('suppliers').doc(uid).set({
+        'pendingPlanId': planId,
+        'pendingPlanName': planName,
+        'pendingBillingCycle': billingCycle,
+        'pendingPaymentReference': paymentReference,
+        'activeSubscriptionId': subId,
+        'updatedAt': nowIso,
+      }, SetOptions(merge: true));
+
+      return null;
+    } catch (e) {
+      debugPrint('Upgrade request error: $e');
+      return 'Failed to submit upgrade request: $e';
+    }
+  }
+
+  /// Permanently delete customer or supplier account, eradicating all data
+  Future<String?> deleteAccount() async {
+    if (_currentUser == null) return 'No active user session to delete.';
+    _isLoading = true;
+    notifyListeners();
+
+    final uid = _currentUser!.uid;
+    final role = _userRole ?? _currentUser!.role;
+    final email = _currentUser!.email;
+    final name = _currentUser!.name;
+    final phone = _currentUser!.phone;
+    final address = _currentUser!.address ?? '';
+
+    try {
+      final delDocId = 'del_${uid}_${DateTime.now().millisecondsSinceEpoch}';
+      final delRecord = {
+        'deletedId': delDocId,
+        'userId': uid,
+        'uid': uid,
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'role': role,
+        'address': address,
+        'deletedAt': DateTime.now().toIso8601String(),
+        'status': 'Deleted from Mobile App',
+        'reason': 'User requested permanent account closure',
+      };
+
+      // 1. Record in deleted_accounts archive
+      await FirebaseFirestore.instance
+          .collection('deleted_accounts')
+          .doc(delDocId)
+          .set(delRecord)
+          .catchError((_) {});
+
+      // 2. Eradicate from users, customers, and suppliers collections
+      await FirebaseFirestore.instance.collection('users').doc(uid).delete().catchError((_) {});
+      await FirebaseFirestore.instance.collection('customers').doc(uid).delete().catchError((_) {});
+      await FirebaseFirestore.instance.collection('suppliers').doc(uid).delete().catchError((_) {});
+
+      // 3. Delete Firebase Auth user
+      final fbUser = FirebaseAuth.instance.currentUser;
+      if (fbUser != null) {
+        try {
+          await fbUser.delete();
+        } catch (e) {
+          debugPrint('Auth delete note (may require recent sign-in): $e');
+        }
+      }
+
+      // 4. Tear down local session and sign out
+      _userLiveSubscription?.cancel();
+      _userLiveSubscription = null;
+      try {
+        await FirebaseAuth.instance.signOut();
+      } catch (_) {}
+      _currentUser = null;
+      _userRole = null;
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return 'Account deletion failed: $e';
     }
   }
 

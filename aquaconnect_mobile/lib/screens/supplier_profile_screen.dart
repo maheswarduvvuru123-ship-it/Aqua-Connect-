@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../utils/theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/zomato_location_picker_dialog.dart';
+import '../widgets/terms_privacy_dialog.dart';
 import '../services/image_upload_service.dart';
 
 class SupplierProfileScreen extends StatefulWidget {
@@ -1503,6 +1504,10 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
                   onPressed: _isSaving ? null : _saveProfile,
                 ),
               ),
+              const SizedBox(height: 20),
+
+              // Subscription Plan & Licensing Section
+              _buildSubscriptionCard(context),
               const SizedBox(height: 16),
 
               // Emergency App Support Helpline Card (8522828688)
@@ -1547,10 +1552,589 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // Platform Policies & Terms Card
+              Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFEFF6FF),
+                    child: Icon(Icons.policy_outlined, color: AquaTheme.primary),
+                  ),
+                  title: const Text('Terms of Service & Privacy Policy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  subtitle: const Text('IS 14543 standards, 20L can deposit & data rights', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                  onTap: () => showTermsPrivacyDialog(context),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Danger Zone: Delete Supplier Account & Plant Facility
+              Card(
+                color: const Color(0xFFFEF2F2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Color(0xFFFECACA)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Danger Zone: Delete Supplier Account & Plant Facility',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.red),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Permanently remove your water plant facility, supplier profile, delivery areas, and can catalog from our live database. This operation is irreversible.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF7F1D1D), height: 1.4),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.red),
+                            foregroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.delete_forever, size: 18),
+                          label: const Text('Delete My Supplier Account & Plant', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: () => _confirmDeleteSupplierAccount(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Sign Out Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AquaTheme.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.logout, color: Colors.white),
+                  label: const Text('Sign Out', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  onPressed: () => Provider.of<AuthProvider>(context, listen: false).logout(),
+                ),
+              ),
               const SizedBox(height: 30),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionCard(BuildContext context) {
+    final user = Provider.of<AuthProvider>(context).currentUser;
+    final planTitle = user?.planName ?? 'Free Trial (1 Day)';
+    final isTrial = planTitle.toLowerCase().contains('trial');
+    final cycle = user?.billingCycle ?? (isTrial ? '1-Day Free Trial' : 'Monthly');
+
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.workspace_premium, color: Color(0xFF7C3AED), size: 22),
+                    SizedBox(width: 8),
+                    Text(
+                      'Subscription Plan & Licensing',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B)),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isTrial ? const Color(0xFFFEF3C7) : const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: isTrial ? const Color(0xFFFDE68A) : const Color(0xFFA7F3D0)),
+                  ),
+                  child: Text(
+                    isTrial ? 'FREE TRIAL' : 'ACTIVE PLAN',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isTrial ? const Color(0xFFB45309) : const Color(0xFF047857),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: isTrial ? const Color(0xFFFEF3C7) : const Color(0xFFF3E8FF),
+                    radius: 20,
+                    child: Icon(
+                      isTrial ? Icons.timer : Icons.bolt,
+                      color: isTrial ? const Color(0xFFD97706) : const Color(0xFF7C3AED),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          planTitle,
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF0F172A)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Billing Cycle: $cycle • Direct customer dispatch & full water plant access enabled.',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF7C3AED),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                icon: const Icon(Icons.upgrade, size: 18),
+                label: const Text('Upgrade / Renew Plan', style: TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: () => _showUpgradePlanModal(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showUpgradePlanModal(BuildContext context) {
+    String selectedPlan = 'plan_pro';
+    String billingCycle = 'Monthly';
+    final utrController = TextEditingController();
+    bool isSubmitting = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final curAmount = selectedPlan == 'plan_enterprise'
+              ? (billingCycle == 'Yearly' ? 24999 : 2499)
+              : (billingCycle == 'Yearly' ? 9999 : 999);
+          final qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${Uri.encodeComponent('upi://pay?pa=aquaconnect.admin@upi&pn=AquaConnect%20Admin&am=$curAmount&cu=INR')}';
+
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.bolt, color: Color(0xFF7C3AED), size: 22),
+                          SizedBox(width: 8),
+                          Text(
+                            'Upgrade Supplier Plan',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const Text(
+                    'Choose your plan to unlock unlimited customer orders & live fleet dispatch.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Billing cycle toggle
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setModalState(() => billingCycle = 'Monthly'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: billingCycle == 'Monthly' ? Colors.white : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: billingCycle == 'Monthly' ? [const BoxShadow(color: Colors.black12, blurRadius: 4)] : null,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Monthly',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: billingCycle == 'Monthly' ? AquaTheme.primary : const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setModalState(() => billingCycle = 'Yearly'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: billingCycle == 'Yearly' ? Colors.white : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: billingCycle == 'Yearly' ? [const BoxShadow(color: Colors.black12, blurRadius: 4)] : null,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Yearly (Save 17%)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: billingCycle == 'Yearly' ? AquaTheme.primary : const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Plan Options: Pro Flow vs Enterprise
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => setModalState(() => selectedPlan = 'plan_pro'),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: selectedPlan == 'plan_pro' ? const Color(0xFFFAF5FF) : Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: selectedPlan == 'plan_pro' ? const Color(0xFF7C3AED) : const Color(0xFFCBD5E1),
+                                width: selectedPlan == 'plan_pro' ? 2 : 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Pro Flow Plan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                                const SizedBox(height: 4),
+                                Text(
+                                  billingCycle == 'Yearly' ? '₹9,999/yr' : '₹999/mo',
+                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF7C3AED)),
+                                ),
+                                const SizedBox(height: 4),
+                                const Text('Unlimited Orders & Fleet Dispatch', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => setModalState(() => selectedPlan = 'plan_enterprise'),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: selectedPlan == 'plan_enterprise' ? const Color(0xFFFAF5FF) : Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: selectedPlan == 'plan_enterprise' ? const Color(0xFF7C3AED) : const Color(0xFFCBD5E1),
+                                width: selectedPlan == 'plan_enterprise' ? 2 : 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Enterprise Plan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                                const SizedBox(height: 4),
+                                Text(
+                                  billingCycle == 'Yearly' ? '₹24,999/yr' : '₹2,499/mo',
+                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF7C3AED)),
+                                ),
+                                const SizedBox(height: 4),
+                                const Text('Multi-Plant & Priority 24/7 Hotline', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Admin Subscription QR & UPI details
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            qrUrl,
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 80,
+                              height: 80,
+                              color: Colors.grey.shade300,
+                              child: const Icon(Icons.qr_code, size: 40),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Scan & Pay Platform Subscription:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF334155))),
+                              const SizedBox(height: 2),
+                              Text('₹$curAmount ($billingCycle)', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF7C3AED))),
+                              const SizedBox(height: 2),
+                              const Text('Admin UPI: aquaconnect.admin@upi', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                              const Text('Helpline / GPay: 8522828688', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 12-digit UTR Input
+                  const Text('Payment Reference / 12-Digit UTR Number *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                        ),
+                        child: const Text('UPI', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: utrController,
+                          keyboardType: TextInputType.number,
+                          maxLength: 12,
+                          decoration: const InputDecoration(
+                            counterText: '',
+                            hintText: '12-digit numeric reference',
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.horizontal(right: Radius.circular(8)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '🛡️ Once submitted, Admin will 1-click verify and activate your plan in Admin Login.',
+                    style: TextStyle(fontSize: 10, color: Color(0xFF047857)),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Submit Upgrade Request Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7C3AED),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: isSubmitting
+                          ? null
+                          : () async {
+                              final cleanUtr = utrController.text.trim().replaceAll(RegExp(r'\D'), '');
+                              if (cleanUtr.length != 12) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Please enter a valid 12-digit numeric UTR number')),
+                                );
+                                return;
+                              }
+
+                              setModalState(() => isSubmitting = true);
+                              final auth = Provider.of<AuthProvider>(context, listen: false);
+                              final planName = selectedPlan == 'plan_enterprise' ? 'Enterprise Plan' : 'Pro Flow Plan';
+                              final err = await auth.requestSubscriptionUpgrade(
+                                planId: selectedPlan,
+                                planName: planName,
+                                billingCycle: billingCycle,
+                                paymentReference: 'UPI$cleanUtr',
+                                amount: curAmount.toDouble(),
+                              );
+
+                              if (ctx.mounted) {
+                                Navigator.pop(ctx);
+                              }
+
+                              if (context.mounted) {
+                                if (err != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(err), backgroundColor: Colors.red),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('🎉 Upgrade request submitted for ₹$curAmount ($billingCycle)! Admin will verify and activate your plan shortly.'),
+                                      backgroundColor: Colors.green.shade800,
+                                      duration: const Duration(seconds: 5),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                      child: isSubmitting
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('Submit Upgrade Request', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _confirmDeleteSupplierAccount(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final user = auth.currentUser;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text('Delete Supplier Account & Plant?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to permanently delete your supplier plant facility (${user?.name ?? ""})?\n\n'
+          'All plant details, delivery configurations, inventory listings, and fleet records will be completely removed from our live databases. This operation is irreversible.',
+          style: const TextStyle(fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final err = await auth.deleteAccount();
+              if (context.mounted) {
+                if (err != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(err), backgroundColor: Colors.red),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Your supplier plant and account data have been permanently deleted.'),
+                      backgroundColor: Colors.black87,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Yes, Delete Permanently', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }

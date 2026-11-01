@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../utils/theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/zomato_location_picker_dialog.dart';
+import '../widgets/terms_privacy_dialog.dart';
 import '../services/image_upload_service.dart';
 
 class CustomerProfileScreen extends StatelessWidget {
@@ -356,12 +357,79 @@ class CustomerProfileScreen extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // Platform Policies & Terms Card
+          Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            child: ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFFEFF6FF),
+                child: Icon(Icons.policy_outlined, color: AquaTheme.primary),
+              ),
+              title: const Text('Terms of Service & Privacy Policy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              subtitle: const Text('IS 14543 standards, 20L can deposit & data rights', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+              onTap: () => showTermsPrivacyDialog(context),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Danger Zone: Delete Account
+          Card(
+            color: const Color(0xFFFEF2F2),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFFFECACA)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Danger Zone: Delete Account',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.red),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Permanently delete your Aqua connect customer account, delivery addresses, and personal profile from our live database. This action is irreversible.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF7F1D1D), height: 1.4),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.red),
+                        foregroundColor: Colors.red,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: const Icon(Icons.delete_forever, size: 18),
+                      label: const Text('Delete My Customer Account', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: () => _confirmDeleteAccount(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 24),
 
           // Sign Out button
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AquaTheme.danger,
+              backgroundColor: AquaTheme.primary,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
             icon: const Icon(Icons.logout, color: Colors.white),
@@ -370,6 +438,63 @@ class CustomerProfileScreen extends StatelessWidget {
           ),
         ],
       ),
+    ),
+  );
+}
+
+void _confirmDeleteAccount(BuildContext context) {
+  final auth = Provider.of<AuthProvider>(context, listen: false);
+  final user = auth.currentUser;
+
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text('Permanently Delete Account?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+      content: Text(
+        'Are you sure you want to permanently delete your Aqua connect customer account (${user?.email ?? ""})?\n\n'
+        'All your delivery addresses, personal profile, and order records will be completely removed from our live databases. This operation is irreversible.',
+        style: const TextStyle(fontSize: 13, height: 1.4),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cancel', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red.shade700,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: () async {
+            Navigator.pop(ctx);
+            final err = await auth.deleteAccount();
+            if (context.mounted) {
+              if (err != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(err), backgroundColor: Colors.red),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Your customer account and personal data were permanently deleted.'),
+                    backgroundColor: Colors.black87,
+                  ),
+                );
+              }
+            }
+          },
+          child: const Text('Yes, Delete Account', style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ],
     ),
   );
 }

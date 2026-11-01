@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_performance/firebase_performance.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 import '../providers/auth_provider.dart';
 import '../providers/water_delivery_provider.dart';
 import '../utils/theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/zomato_location_picker_dialog.dart';
+import '../widgets/terms_privacy_dialog.dart';
 import '../widgets/aquaconnect_logo.dart';
 
 class WelcomeScreen extends StatefulWidget {
@@ -23,11 +22,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  final _utrController = TextEditingController();
 
   String _selectedRole = 'supplier';
   bool _isLoginTab = true;
   bool _obscurePassword = true;
   bool _isDetectingLocation = false;
+  String _selectedPlanId = 'plan_starter';
+  String _billingCycle = 'Monthly';
 
   Future<void> _handleGpsAutoDetect() async {
     setState(() => _isDetectingLocation = true);
@@ -117,6 +119,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _utrController.dispose();
     super.dispose();
   }
 
@@ -207,14 +210,43 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       return;
     }
 
+    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+    if (cleanPhone.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid 10-digit mobile number')),
+      );
+      return;
+    }
+    final formattedPhone = cleanPhone.length == 10 ? '+91 $cleanPhone' : '+$cleanPhone';
+
+    String finalPaymentReference = '';
+    double planAmount = 0.0;
+    if (_selectedRole == 'supplier' && _selectedPlanId != 'plan_starter') {
+      final cleanUtr = _utrController.text.trim().replaceAll(RegExp(r'\D'), '');
+      if (cleanUtr.length != 12) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a valid 12-digit numeric UTR number (constant UPI + 12 numbers)')),
+        );
+        return;
+      }
+      finalPaymentReference = 'UPI$cleanUtr';
+      planAmount = _selectedPlanId == 'plan_enterprise'
+          ? (_billingCycle == 'Yearly' ? 24999.0 : 2499.0)
+          : (_billingCycle == 'Yearly' ? 9999.0 : 999.0);
+    }
+
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final error = await auth.register(
       name: name,
       email: email,
       password: password,
       role: _selectedRole,
-      phone: phone,
+      phone: formattedPhone,
       address: address,
+      planId: _selectedPlanId,
+      billingCycle: _selectedPlanId == 'plan_starter' ? '1-Day Free Trial' : _billingCycle,
+      paymentReference: finalPaymentReference,
+      planAmount: planAmount,
     );
 
     if (!mounted) return;
@@ -242,12 +274,22 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       );
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Account created successfully as ${_selectedRole.toUpperCase()}!'),
-        backgroundColor: Colors.green[800],
-      ),
-    );
+    if (_selectedRole == 'supplier' && _selectedPlanId != 'plan_starter') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🎉 Registration & Payment UTR #$finalPaymentReference submitted! Account is pending Admin approval.'),
+          backgroundColor: Colors.green[800],
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Account created successfully as ${_selectedRole.toUpperCase()}!'),
+          backgroundColor: Colors.green[800],
+        ),
+      );
+    }
   }
 
   @override
@@ -700,6 +742,44 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         ],
                       ),
                     ),
+                    const SizedBox(height: 10),
+
+                    // Customer Free Account Notice
+                    if (_selectedRole == 'customer')
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFBBF7D0)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Text('💧', style: TextStyle(fontSize: 20)),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '100% Free Consumer Account',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF166534)),
+                                  ),
+                                  Text(
+                                    'Zero subscription fees. Order water cans anytime with doorstep plant delivery!',
+                                    style: TextStyle(fontSize: 10, color: Color(0xFF15803D)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // Supplier Subscription Plan Selection & Payment
+                    if (_selectedRole == 'supplier')
+                      _buildSubscriptionPlanSelector(),
+
                     const SizedBox(height: 14),
                     ElevatedButton(
                       onPressed: auth.isLoading ? null : _handleRegister,
@@ -721,11 +801,399 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     ),
                   ],
 
+                  const SizedBox(height: 18),
+
+                  // Terms & Privacy Policy Clickable Link
+                  Center(
+                    child: InkWell(
+                      onTap: () => showTermsPrivacyDialog(context),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: RichText(
+                          textAlign: TextAlign.center,
+                          text: const TextSpan(
+                            text: 'By continuing, you agree to Aqua connect\n',
+                            style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            children: [
+                              TextSpan(
+                                text: 'Terms of Service',
+                                style: TextStyle(fontWeight: FontWeight.bold, color: AquaTheme.primary, decoration: TextDecoration.underline),
+                              ),
+                              TextSpan(text: ' & '),
+                              TextSpan(
+                                text: 'Privacy Policy',
+                                style: TextStyle(fontWeight: FontWeight.bold, color: AquaTheme.primary, decoration: TextDecoration.underline),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Admin Portal Access Link
+                  Center(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF475569)),
+                      label: const Text(
+                        '🛡️ Open Admin Portal',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                      ),
+                      onPressed: () => _showAdminPortalDialog(context),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Production Observability Link
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () => _showObservabilityDialog(context),
+                      icon: const Icon(Icons.speed, size: 14, color: AquaTheme.textSecondary),
+                      label: const Text(
+                        'Release v1.0.2 System Status',
+                        style: TextStyle(fontSize: 11, color: AquaTheme.textSecondary, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionPlanSelector() {
+    final curAmount = _selectedPlanId == 'plan_enterprise'
+        ? (_billingCycle == 'Yearly' ? 24999 : 2499)
+        : (_billingCycle == 'Yearly' ? 9999 : 999);
+    final qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${Uri.encodeComponent('upi://pay?pa=aquaconnect.admin@upi&pn=AquaConnect%20Admin&am=$curAmount&cu=INR')}';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '📋 Select Subscription Plan *',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+              ),
+              // Billing cycle toggle
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.all(2),
+                child: Row(
+                  children: [
+                    InkWell(
+                      onTap: () => setState(() => _billingCycle = 'Monthly'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _billingCycle == 'Monthly' ? Colors.white : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Monthly',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: _billingCycle == 'Monthly' ? AquaTheme.primary : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => setState(() => _billingCycle = 'Yearly'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _billingCycle == 'Yearly' ? Colors.white : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Yearly (-17%)',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: _billingCycle == 'Yearly' ? AquaTheme.primary : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Plan cards row
+          Row(
+            children: [
+              _buildPlanOptionTile(
+                id: 'plan_starter',
+                title: 'Free Trial',
+                price: 'Free',
+                subtitle: '1-Day Access',
+                isPopular: false,
+              ),
+              const SizedBox(width: 6),
+              _buildPlanOptionTile(
+                id: 'plan_pro',
+                title: 'Pro Flow',
+                price: _billingCycle == 'Yearly' ? '₹9,999' : '₹999',
+                subtitle: _billingCycle == 'Yearly' ? '/year' : '/month',
+                isPopular: true,
+              ),
+              const SizedBox(width: 6),
+              _buildPlanOptionTile(
+                id: 'plan_enterprise',
+                title: 'Enterprise',
+                price: _billingCycle == 'Yearly' ? '₹24,999' : '₹2,499',
+                subtitle: _billingCycle == 'Yearly' ? '/year' : '/month',
+                isPopular: false,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          if (_selectedPlanId == 'plan_starter')
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Text(
+                '⚡ Free Trial (1 Day Only): You get full water plant access for 24 hours. After 1 day, credentials will automatically block until upgraded to a paid plan. (1 trial allowed per plant/phone/email).',
+                style: TextStyle(fontSize: 11, color: Color(0xFF92400E), height: 1.3),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          qrSrc,
+                          width: 75,
+                          height: 75,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 75,
+                            height: 75,
+                            color: Colors.grey.shade200,
+                            child: const Icon(Icons.qr_code, size: 36),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Scan to Pay Subscription:',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                            ),
+                            Text(
+                              '₹$curAmount ($_billingCycle)',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF7C3AED)),
+                            ),
+                            const Text('Admin UPI: aquaconnect.admin@upi', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                            const Text('Phone / GPay: 8522828688', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Transaction Reference / UTR Number * (UPI + 12 Digits)',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                        ),
+                        child: const Text('UPI', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _utrController,
+                          keyboardType: TextInputType.number,
+                          maxLength: 12,
+                          decoration: const InputDecoration(
+                            counterText: '',
+                            hintText: '12 numeric digits',
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.horizontal(right: Radius.circular(8)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '🛡️ Once submitted, Admin will 1-click verify and activate your plan in Admin Login.',
+                    style: TextStyle(fontSize: 10, color: Color(0xFF047857)),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanOptionTile({
+    required String id,
+    required String title,
+    required String price,
+    required String subtitle,
+    required bool isPopular,
+  }) {
+    final isSelected = _selectedPlanId == id;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _selectedPlanId = id),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFFAF5FF) : Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? const Color(0xFF7C3AED) : const Color(0xFFCBD5E1),
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              if (isPopular)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  margin: const EdgeInsets.only(bottom: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C3AED),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text('POPULAR', style: TextStyle(fontSize: 7, color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+              Text(
+                price,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: isSelected ? const Color(0xFF7C3AED) : AquaTheme.primary,
+                ),
+              ),
+              Text(subtitle, style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAdminPortalDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.admin_panel_settings, color: AquaTheme.primary, size: 26),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text('Aqua connect Admin Portal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Access platform administrative management, supplier verification, plan approvals, and system analytics via web:',
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('🌐 Portal URL:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
+                  SelectableText(
+                    'https://aqua-ec4f5.web.app/#admin',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AquaTheme.primary),
+                  ),
+                  SizedBox(height: 8),
+                  Text('🔑 Admin Email:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
+                  SelectableText('admin@aquaconnect.com', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 8),
+                  Text('🔒 Password:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
+                  SelectableText('admin123', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 8),
+                  Text('📞 Admin Support Phone:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
+                  SelectableText('+91 85228 28688', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AquaTheme.primary),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
@@ -747,14 +1215,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 const Icon(Icons.shield_outlined, color: AquaTheme.primary, size: 24),
                 const SizedBox(width: 10),
                 const Text(
-                  'Aqua connect v1.0.1 Monitoring',
+                  'Aqua connect v1.0.2 Monitoring',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.12),
+                    color: Colors.green.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text('ACTIVE', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
@@ -794,6 +1262,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     label: const Text('Ping Perf Trace', style: TextStyle(fontSize: 12, color: Colors.white)),
                     style: ElevatedButton.styleFrom(backgroundColor: AquaTheme.primary),
                     onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
                       Navigator.pop(ctx);
                       try {
                         final trace = FirebasePerformance.instance.newTrace('manual_diagnostic_trace');
@@ -801,7 +1270,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         await Future.delayed(const Duration(milliseconds: 150));
                         await trace.stop();
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger.showSnackBar(
                             const SnackBar(content: Text('✅ Performance trace recorded & sent!')),
                           );
                         }

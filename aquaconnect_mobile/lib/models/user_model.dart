@@ -15,6 +15,10 @@ class UserModel {
   final bool isOpenToday;
   final String? upiId;
   final String? upiPhoneNumber;
+  final String? planName;
+  final String? planId;
+  final String? billingCycle;
+  final String? subscriptionStatus;
   final DateTime createdAt;
 
   UserModel({
@@ -34,6 +38,10 @@ class UserModel {
     this.isOpenToday = true,
     this.upiId,
     this.upiPhoneNumber,
+    this.planName,
+    this.planId,
+    this.billingCycle,
+    this.subscriptionStatus,
     required this.createdAt,
   });
 
@@ -103,6 +111,10 @@ class UserModel {
       isOpenToday: json['isOpenToday'] is bool ? json['isOpenToday'] : true,
       upiId: json['upiId']?.toString() ?? (json['role'] == 'supplier' ? '${(json['name']?.toString() ?? "supplier").replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase()}@upi' : null),
       upiPhoneNumber: json['upiPhoneNumber']?.toString() ?? json['phone']?.toString(),
+      planName: json['planName']?.toString(),
+      planId: json['planId']?.toString(),
+      billingCycle: json['billingCycle']?.toString(),
+      subscriptionStatus: json['subscriptionStatus']?.toString() ?? json['status']?.toString(),
       createdAt: parsedCreatedAt,
     );
   }
@@ -125,6 +137,10 @@ class UserModel {
       'isOpenToday': isOpenToday,
       'upiId': upiId,
       'upiPhoneNumber': upiPhoneNumber,
+      'planName': planName,
+      'planId': planId,
+      'billingCycle': billingCycle,
+      'subscriptionStatus': subscriptionStatus,
       'createdAt': createdAt.toIso8601String(),
     };
   }

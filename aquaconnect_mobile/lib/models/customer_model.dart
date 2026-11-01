@@ -18,13 +18,13 @@ class CustomerModel {
     required this.phone,
     required this.email,
     required this.address,
-    required this.type,
-    required this.cansHeld,
-    required this.depositHeld,
-    required this.duesAmount,
-    required this.totalOrdersCount,
-    required this.totalCansDelivered,
-    required this.totalCansReturned,
+    this.type = 'Residential',
+    this.cansHeld = 0,
+    this.depositHeld = 0.0,
+    this.duesAmount = 0.0,
+    this.totalOrdersCount = 0,
+    this.totalCansDelivered = 0,
+    this.totalCansReturned = 0,
   });
 
   factory CustomerModel.fromJson(Map<String, dynamic> json) {

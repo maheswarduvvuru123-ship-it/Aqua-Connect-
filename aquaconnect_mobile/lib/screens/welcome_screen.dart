@@ -93,11 +93,16 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         ),
       );
     } else {
+      if (_addressController.text.trim().isEmpty) {
+        setState(() {
+          _addressController.text = 'Vaddagandla (NH40), Allagadda, 518112';
+        });
+      }
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('⚠️ GPS permission not granted or location service off. Opening map picker...'),
-          backgroundColor: Colors.orange,
+          content: Text('📍 Location permission needed. Selected default area or pick on map.'),
+          backgroundColor: Colors.blueAccent,
           duration: Duration(seconds: 3),
         ),
       );
@@ -286,34 +291,69 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       return;
     }
 
-    // Also sync customer into waterData
-    if (_selectedRole == 'customer' && auth.currentUser != null) {
-      final waterData = Provider.of<WaterDeliveryProvider>(context, listen: false);
-      waterData.registerOrUpdateCustomer(
-        id: auth.currentUser!.uid,
-        name: auth.currentUser!.name,
-        phone: auth.currentUser!.phone,
-        address: auth.currentUser!.address ?? '',
-        email: auth.currentUser!.email,
-      );
-    }
+    // Clear password & UTR
+    _passwordController.clear();
+    _utrController.clear();
 
-    if (_selectedRole == 'supplier' && _selectedPlanId != 'plan_starter') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('🎉 Registration & Payment UTR #$finalPaymentReference submitted! Account is pending Admin approval.'),
-          backgroundColor: Colors.green[800],
-          duration: const Duration(seconds: 5),
+    // Switch to login tab so user waits for Admin approval
+    setState(() {
+      _isLoginTab = true;
+    });
+
+    final roleLabel = _selectedRole == 'supplier' ? 'Supplier Plant' : 'Customer';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.hourglass_top_rounded, color: Colors.orange, size: 28),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Approval Pending',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+          ],
         ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Account created successfully as ${_selectedRole.toUpperCase()}!'),
-          backgroundColor: Colors.green[800],
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '🎉 Account created successfully for $name ($roleLabel)!',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B)),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFED7AA)),
+              ),
+              child: const Text(
+                '⏳ Administrator Verification Required:\nYour account is waiting for approval by the Administrator. Once Admin verifies your account in the Admin Portal, you can sign in.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF9A3412), height: 1.4),
+              ),
+            ),
+          ],
         ),
-      );
-    }
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AquaTheme.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('OK, Got it', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -896,7 +936,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       onPressed: () => _showObservabilityDialog(context),
                       icon: const Icon(Icons.speed, size: 14, color: AquaTheme.textSecondary),
                       label: const Text(
-                        'Release v1.0.5 System Status',
+                        'Release v1.0.6 System Status',
                         style: TextStyle(fontSize: 11, color: AquaTheme.textSecondary, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -1221,7 +1261,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 const Icon(Icons.shield_outlined, color: AquaTheme.primary, size: 24),
                 const SizedBox(width: 10),
                 const Text(
-                  'Aqua connect v1.0.5 Monitoring',
+                  'Aqua connect v1.0.6 Monitoring',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 const Spacer(),

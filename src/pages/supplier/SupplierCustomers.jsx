@@ -118,6 +118,43 @@ const SupplierCustomers = () => {
       };
     });
 
+    // Guarantee that ANY customer with an order routed to this supplier appears in the directory
+    myOrders.forEach(o => {
+      const oCid = o.customerId;
+      const alreadyIncluded = realCustomersWithMetrics.some(c => 
+        (oCid && (c.customerId === oCid || c.userId === oCid || c.id === oCid)) ||
+        (o.customerPhone && c.phone && c.phone !== 'Not provided' && c.phone === o.customerPhone) ||
+        (o.customerEmail && c.email && c.email !== 'Not provided' && c.email === o.customerEmail)
+      );
+      if (!alreadyIncluded && (oCid || o.customerName || o.customerPhone)) {
+        const theirOrders = myOrders.filter(ord => 
+          (oCid && ord.customerId === oCid) || 
+          (o.customerPhone && ord.customerPhone === o.customerPhone)
+        );
+        const totalAmountSum = theirOrders.reduce((sum, ord) => sum + (ord.totalAmount || 0), 0);
+        const pendingPaymentSum = theirOrders.reduce((sum, ord) => {
+          if (ord.paymentStatus === 'Unpaid' || ord.paymentStatus === 'Pending' || ord.paymentStatus === 'Pending Verification' || ord.paymentStatus === 'Partially Paid') {
+            return sum + (ord.outstandingBalance !== undefined ? ord.outstandingBalance : (ord.totalAmount || 0));
+          }
+          return sum;
+        }, 0);
+        realCustomersWithMetrics.push({
+          customerId: oCid || `cust_${Date.now()}`,
+          userId: oCid,
+          name: o.customerName || 'Customer',
+          phone: o.customerPhone || 'Not provided',
+          email: o.customerEmail || 'Not provided',
+          address: o.deliveryAddress || 'Address on file',
+          totalOrders: theirOrders.length,
+          totalAmount: totalAmountSum,
+          pendingPayment: pendingPaymentSum,
+          status: 'Active',
+          isVerified: true,
+          createdAt: o.createdAt || new Date().toISOString()
+        });
+      }
+    });
+
     setCustomers(realCustomersWithMetrics);
     setOrders(myOrders);
   };

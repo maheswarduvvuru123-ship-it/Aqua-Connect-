@@ -288,6 +288,13 @@ export const AuthProvider = ({ children }) => {
       if (cust && (cust.status === 'Suspended' || cust.accountStatus === 'Suspended' || cust.isSuspended)) {
         throw new Error('⏸️ Account Temporarily Suspended: Your customer account has been paused by the administrator. Please contact admin (8522828688) to reactivate your access.');
       }
+      const isCustPending = found.accountStatus === 'Pending Verification' || 
+                            found.status === 'Pending Verification' ||
+                            found.isVerified === false ||
+                            (cust && (cust.status === 'Pending Verification' || cust.accountStatus === 'Pending Verification' || cust.isVerified === false));
+      if (isCustPending) {
+        throw new Error(`⏳ Account Pending Admin Verification: Your customer account is pending approval by the Administrator.\nOnce the Admin verifies your account in the Admin portal, you will be able to sign in.`);
+      }
     }
 
     if (found.role === 'supplier') {
@@ -306,9 +313,11 @@ export const AuthProvider = ({ children }) => {
       }
 
       const isPending = found.accountStatus === 'Pending Verification' || 
-                        (sup && (sup.status === 'Pending Verification' || sup.isVerified === false));
+                        found.status === 'Pending Verification' ||
+                        found.isVerified === false ||
+                        (sup && (sup.status === 'Pending Verification' || sup.accountStatus === 'Pending Verification' || sup.isVerified === false));
       if (isPending) {
-        throw new Error(`⏳ Account Pending Admin Verification: Your subscription payment reference is currently under review by the Administrator.\nOnce the Admin confirms your plan in the Admin portal, your account will be activated and you can sign in.`);
+        throw new Error(`⏳ Account Pending Admin Verification: Your supplier plant account is pending approval by the Administrator.\nOnce the Admin confirms and verifies your account in the Admin portal, you will be able to sign in.`);
       }
     }
 
@@ -453,6 +462,16 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('aquaconnect_auth_role');
             throw new Error('⏸️ Account Temporarily Suspended: Your customer account has been paused by the administrator. Please contact admin (8522828688) to reactivate your access.');
           }
+          const isCustPending = profile.accountStatus === 'Pending Verification' || 
+                                profile.status === 'Pending Verification' ||
+                                profile.isVerified === false ||
+                                (cust && (cust.status === 'Pending Verification' || cust.accountStatus === 'Pending Verification' || cust.isVerified === false));
+          if (isCustPending) {
+            await fbSignOut(auth);
+            localStorage.removeItem('aquaconnect_auth_user');
+            localStorage.removeItem('aquaconnect_auth_role');
+            throw new Error(`⏳ Account Pending Admin Verification: Your customer account is pending approval by the Administrator.\nOnce the Admin verifies your account in the Admin portal, you will be able to sign in.`);
+          }
         }
 
         // Verify supplier record
@@ -479,12 +498,14 @@ export const AuthProvider = ({ children }) => {
           }
 
           const isPending = profile.accountStatus === 'Pending Verification' || 
-                            (sup && (sup.status === 'Pending Verification' || sup.isVerified === false));
+                            profile.status === 'Pending Verification' ||
+                            profile.isVerified === false ||
+                            (sup && (sup.status === 'Pending Verification' || sup.accountStatus === 'Pending Verification' || sup.isVerified === false));
           if (isPending) {
             await fbSignOut(auth);
             localStorage.removeItem('aquaconnect_auth_user');
             localStorage.removeItem('aquaconnect_auth_role');
-            throw new Error(`⏳ Account Pending Admin Verification: Your subscription payment reference is currently under review by the Administrator.\nOnce the Admin confirms your plan in the Admin portal, your account will be activated and you can sign in.`);
+            throw new Error(`⏳ Account Pending Admin Verification: Your supplier plant account is pending approval by the Administrator.\nOnce the Admin confirms and verifies your account in the Admin portal, you will be able to sign in.`);
           }
         }
 
@@ -544,7 +565,7 @@ export const AuthProvider = ({ children }) => {
         }
       }
 
-      const initialAccountStatus = isSupplier && !isFreePlan ? 'Pending Verification' : 'Active';
+      const initialAccountStatus = 'Pending Verification';
 
       const newUser = {
         uid,
@@ -555,10 +576,11 @@ export const AuthProvider = ({ children }) => {
         role: role || 'customer',
         accountStatus: initialAccountStatus,
         status: initialAccountStatus,
+        isVerified: false,
         planId: isSupplier ? planId : null,
         planName: isSupplier ? (planId === 'plan_starter' ? 'Free Trial (1 Day)' : 'Enterprise Aqua') : 'Free Consumer',
         billingCycle: isSupplier ? (isFreePlan ? '1-Day Free Trial' : billingCycle) : null,
-        subscriptionStatus: isSupplier ? initialAccountStatus : 'Active',
+        subscriptionStatus: isSupplier ? initialAccountStatus : 'Pending Verification',
         isTrial: isSupplier && isFreePlan,
         trialStartDate: isSupplier && isFreePlan ? new Date().toISOString() : null,
         trialEndDate: isSupplier && isFreePlan ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
@@ -596,7 +618,7 @@ export const AuthProvider = ({ children }) => {
           billingCycle,
           status: initialAccountStatus,
           accountStatus: initialAccountStatus,
-          isVerified: isFreePlan,
+          isVerified: false,
           deliveryAreas: ['Gachibowli', 'Madhapur', 'Hitec City'],
           createdAt: new Date().toISOString()
         };
@@ -612,7 +634,7 @@ export const AuthProvider = ({ children }) => {
           amount: planAmount
         });
       } else {
-        // If customer, initialize customer directory record
+        // If customer, initialize customer directory record with Pending Verification status
         setDoc('customers', 'customerId', {
           customerId: uid,
           userId: uid,
@@ -623,30 +645,26 @@ export const AuthProvider = ({ children }) => {
           totalOrders: 0,
           totalAmount: 0,
           pendingPayment: 0,
-          status: 'Active',
-          accountStatus: 'Active',
+          status: 'Pending Verification',
+          accountStatus: 'Pending Verification',
+          isVerified: false,
           createdAt: new Date().toISOString()
         });
       }
 
-      if (isSupplier && !isFreePlan) {
-        if (isLiveFirebaseConfigured() && auth) {
-          try { await fbSignOut(auth); } catch (_) {}
-        }
-        localStorage.removeItem('aquaconnect_auth_user');
-        localStorage.removeItem('aquaconnect_auth_role');
-        return {
-          ...newUser,
-          requiresVerification: true,
-          message: 'Subscription payment reference submitted! Your account is pending Admin approval.'
-        };
+      // Both Supplier and Customer registrations require Admin verification before login!
+      if (isLiveFirebaseConfigured() && auth) {
+        try { await fbSignOut(auth); } catch (_) {}
       }
-
-      setCurrentUser(newUser);
-      setUserRole(newUser.role);
-      localStorage.setItem('aquaconnect_auth_user', JSON.stringify(newUser));
-      localStorage.setItem('aquaconnect_auth_role', newUser.role);
-      return newUser;
+      localStorage.removeItem('aquaconnect_auth_user');
+      localStorage.removeItem('aquaconnect_auth_role');
+      setCurrentUser(null);
+      setUserRole(null);
+      return {
+        ...newUser,
+        requiresVerification: true,
+        message: 'Account registered successfully! Your account is pending verification and approval by the Administrator. Once approved by Admin, you can sign in.'
+      };
     } catch (err) {
       const friendlyMessage = err.message.includes('auth/email-already-in-use')
         ? 'This email is already registered. Please sign in.'

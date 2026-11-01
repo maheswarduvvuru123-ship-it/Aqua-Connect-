@@ -199,6 +199,30 @@ const CartDrawer = ({ isOpen, onClose, onViewOrders }) => {
         deliveredAt: null
       });
 
+      // Ensure customer record is registered in customers collection for this supplier
+      try {
+        const custId = currentUser?.uid || currentUser?.id || currentUser?.email || 'cust_guest';
+        const existingCust = getDoc('customers', 'customerId', custId) ||
+                             (getCollection('customers') || []).find(c => c.customerId === custId || c.email === currentUser?.email);
+        setDoc('customers', 'customerId', {
+          customerId: custId,
+          userId: custId,
+          name: currentUser?.name || currentUser?.email?.split('@')[0] || 'Customer',
+          email: currentUser?.email || '',
+          phone: currentUser?.phone || deliveryInfo.phone || '',
+          address: deliveryInfo.address,
+          supplierId: targetSupplierId,
+          totalOrders: (existingCust?.totalOrders || 0) + 1,
+          totalAmount: (existingCust?.totalAmount || 0) + serverCalculations.grandTotal,
+          pendingPayment: isOnlineOrUpi ? 0 : serverCalculations.grandTotal,
+          status: 'Active',
+          isVerified: true,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (custErr) {
+        console.warn("Could not sync customer directory record:", custErr);
+      }
+
       // Notify Supplier of new order
       addNotification({
         userId: targetSupplierId,

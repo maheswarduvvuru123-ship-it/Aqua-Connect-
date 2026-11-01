@@ -45,6 +45,18 @@ class AuthProvider extends ChangeNotifier {
           .listen((doc) {
         if (doc.exists && doc.data() != null) {
           final data = Map<String, dynamic>.from(doc.data() as Map);
+          final status = (data['status'] ?? data['accountStatus'] ?? '').toString();
+          final isVerified = data['isVerified'] == true || status == 'Active';
+
+          // Strictly block unverified or suspended users from staying signed in
+          if (status == 'Pending Verification' || !isVerified || status == 'Suspended' || data['isSuspended'] == true) {
+            FirebaseAuth.instance.signOut();
+            _currentUser = null;
+            _userRole = null;
+            notifyListeners();
+            return;
+          }
+
           final role = data['role']?.toString().toLowerCase() ?? 'customer';
           final restoredAddress = (data['address'] ?? '').toString().trim();
           final restoredPhone = (data['phone'] ?? '').toString().trim();
@@ -211,6 +223,30 @@ class AuthProvider extends ChangeNotifier {
         } else {
           return 'This account is registered as a Supplier Plant. Please switch to the Supplier account to sign in.';
         }
+      }
+
+      // 3b. STRICT ADMIN VERIFICATION ENFORCEMENT: Both Supplier and Customer MUST be verified by Administrator
+      final accountStatus = (data['status'] ?? data['accountStatus'] ?? '').toString();
+      final isVerified = data['isVerified'] == true || accountStatus == 'Active';
+
+      if (accountStatus == 'Pending Verification' || !isVerified) {
+        await FirebaseAuth.instance.signOut();
+        _currentUser = null;
+        _userRole = null;
+        _isLoading = false;
+        _isLoggingIn = false;
+        notifyListeners();
+        return '⏳ Account Pending Admin Verification: Your ${expectedRole == "supplier" ? "Supplier Plant" : "Customer"} account is waiting for approval by the Administrator. Once the Admin accepts and verifies your account in the Admin Portal, you can sign in.';
+      }
+
+      if (accountStatus == 'Suspended' || data['isSuspended'] == true) {
+        await FirebaseAuth.instance.signOut();
+        _currentUser = null;
+        _userRole = null;
+        _isLoading = false;
+        _isLoggingIn = false;
+        notifyListeners();
+        return '⏸️ Account Suspended: Your account has been temporarily paused by the Administrator. Please contact support.';
       }
 
       final uid = fbUser.uid;
@@ -426,7 +462,8 @@ class AuthProvider extends ChangeNotifier {
           ? 'Free Trial (1 Day)'
           : 'Enterprise Plan';
       final effectiveBillingCycle = isFree ? '1-Day Free Trial' : billingCycle;
-      final initialSubscriptionStatus = isFree ? 'Active' : 'Pending Verification';
+      // STRICT ADMIN APPROVAL: All accounts (supplier & customer) start in 'Pending Verification'
+      const initialSubscriptionStatus = 'Pending Verification';
 
       final nowIso = DateTime.now().toIso8601String();
       final expiryIso = isFree
@@ -443,12 +480,13 @@ class AuthProvider extends ChangeNotifier {
         'address': cleanAddress,
         'city': 'Hyderabad',
         'role': cleanRole,
-        'accountStatus': cleanRole == 'supplier' ? initialSubscriptionStatus : 'Active',
-        'status': cleanRole == 'supplier' ? initialSubscriptionStatus : 'Active',
+        'accountStatus': initialSubscriptionStatus,
+        'status': initialSubscriptionStatus,
+        'isVerified': false,
         'planId': cleanRole == 'supplier' ? planId : null,
         'planName': cleanRole == 'supplier' ? effectivePlanName : 'Free Consumer',
         'billingCycle': cleanRole == 'supplier' ? effectiveBillingCycle : null,
-        'subscriptionStatus': cleanRole == 'supplier' ? initialSubscriptionStatus : 'Active',
+        'subscriptionStatus': initialSubscriptionStatus,
         'isTrial': cleanRole == 'supplier' ? isFree : false,
         'trialStartDate': cleanRole == 'supplier' && isFree ? nowIso : null,
         'trialEndDate': cleanRole == 'supplier' && isFree ? expiryIso : null,
@@ -473,8 +511,9 @@ class AuthProvider extends ChangeNotifier {
           'totalOrders': 0,
           'totalAmount': 0.0,
           'pendingPayment': 0.0,
-          'status': 'Active',
-          'accountStatus': 'Active',
+          'status': initialSubscriptionStatus,
+          'accountStatus': initialSubscriptionStatus,
+          'isVerified': false,
           'createdAt': nowIso,
           'updatedAt': nowIso,
         }, SetOptions(merge: true));
@@ -515,7 +554,7 @@ class AuthProvider extends ChangeNotifier {
           'activeSubscriptionId': subId,
           'status': initialSubscriptionStatus,
           'accountStatus': initialSubscriptionStatus,
-          'isVerified': isFree,
+          'isVerified': false,
           'isTrial': isFree,
           'trialStartDate': isFree ? nowIso : null,
           'trialEndDate': isFree ? expiryIso : null,
@@ -525,21 +564,10 @@ class AuthProvider extends ChangeNotifier {
         }, SetOptions(merge: true));
       }
 
-      _currentUser = UserModel(
-        uid: uid,
-        name: cleanName,
-        email: cleanEmail,
-        phone: cleanPhone,
-        role: cleanRole,
-        address: cleanAddress,
-        city: 'Hyderabad',
-        planId: cleanRole == 'supplier' ? planId : null,
-        planName: cleanRole == 'supplier' ? effectivePlanName : 'Free Consumer',
-        billingCycle: cleanRole == 'supplier' ? effectiveBillingCycle : null,
-        subscriptionStatus: cleanRole == 'supplier' ? initialSubscriptionStatus : 'Active',
-        createdAt: DateTime.now(),
-      );
-      _userRole = cleanRole;
+      // CRITICAL: Sign out of Firebase Auth so newly created account cannot access without Admin verification
+      await FirebaseAuth.instance.signOut();
+      _currentUser = null;
+      _userRole = null;
 
       _isLoading = false;
       notifyListeners();

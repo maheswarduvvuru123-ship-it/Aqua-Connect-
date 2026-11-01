@@ -933,7 +933,7 @@ class WaterDeliveryProvider extends ChangeNotifier {
     final customerPhonesWithOrders = supplierOrders.map((o) => o.customerPhone).where((p) => p.isNotEmpty).toSet();
     final customerNamesWithOrders = supplierOrders.map((o) => o.customerName.toLowerCase().trim()).where((n) => n.isNotEmpty).toSet();
 
-    return _customers.where((cust) {
+    final resultList = _customers.where((cust) {
       // 1. Has placed orders routed to this supplier
       if (customerIdsWithOrders.contains(cust.id) ||
           (cust.email.isNotEmpty && customerIdsWithOrders.contains(cust.email)) ||
@@ -956,6 +956,39 @@ class WaterDeliveryProvider extends ChangeNotifier {
 
       return false;
     }).toList();
+
+    // CRITICAL: Guarantee every customer who placed an order with this supplier appears in directory
+    final existingIds = resultList.map((c) => c.id).toSet();
+    final existingPhones = resultList.map((c) => c.phone).where((p) => p.isNotEmpty).toSet();
+
+    for (final order in supplierOrders) {
+      final custId = order.customerId;
+      final custPhone = order.customerPhone;
+      final isAlreadyListed = (custId.isNotEmpty && existingIds.contains(custId)) ||
+          (custPhone.isNotEmpty && existingPhones.contains(custPhone));
+
+      if (!isAlreadyListed) {
+        final totalOrdersForCust = supplierOrders
+            .where((o) => (custId.isNotEmpty && o.customerId == custId) || (custPhone.isNotEmpty && o.customerPhone == custPhone))
+            .length;
+
+        final synthesized = CustomerModel(
+          id: custId.isNotEmpty ? custId : 'cust_${DateTime.now().millisecondsSinceEpoch}',
+          name: order.customerName.isNotEmpty ? order.customerName : 'Valued Customer',
+          phone: custPhone,
+          email: '',
+          address: order.deliveryAddress,
+          type: 'Residential',
+          totalOrdersCount: totalOrdersForCust,
+          duesAmount: 0.0,
+        );
+        resultList.add(synthesized);
+        if (synthesized.id.isNotEmpty) existingIds.add(synthesized.id);
+        if (synthesized.phone.isNotEmpty) existingPhones.add(synthesized.phone);
+      }
+    }
+
+    return resultList;
   }
 
   /// Register or update customer details so phone and address are visible to supplier
@@ -1101,6 +1134,22 @@ class WaterDeliveryProvider extends ChangeNotifier {
       if (paymentStatus == 'Pending' || paymentMethod == 'Credit / Pay Later') {
         cust.duesAmount += totalAmount;
       }
+    } else {
+      // Add new customer immediately to directory
+      final newCust = CustomerModel(
+        id: customerId,
+        name: sanitizeName(customerName),
+        phone: customerPhone,
+        email: '',
+        address: deliveryAddress,
+        type: 'Residential',
+        totalOrdersCount: 1,
+        totalCansDelivered: totalCansInOrder,
+        totalCansReturned: emptyCansReturned,
+        cansHeld: (totalCansInOrder - emptyCansReturned).clamp(0, 999),
+        duesAmount: (paymentStatus == 'Pending' || paymentMethod == 'Credit / Pay Later') ? totalAmount : 0.0,
+      );
+      _customers.add(newCust);
     }
 
     // Update inventory
@@ -1110,10 +1159,24 @@ class WaterDeliveryProvider extends ChangeNotifier {
 
     notifyListeners();
 
-    // Persist to Firestore backend
+    // Persist order & ensure customer is registered in Firestore
     try {
       FirebaseFirestore.instance.collection('orders').doc(newOrderId).set(newOrder.toJson()).catchError((e) {
         debugPrint('Firestore placeOrder error: $e');
+      });
+      FirebaseFirestore.instance.collection('customers').doc(customerId).set({
+        'customerId': customerId,
+        'userId': customerId,
+        'name': sanitizeName(customerName),
+        'phone': customerPhone,
+        'address': deliveryAddress,
+        'supplierId': resolvedSupplierId,
+        'status': 'Active',
+        'accountStatus': 'Active',
+        'isVerified': true,
+        'updatedAt': DateTime.now().toIso8601String(),
+      }, SetOptions(merge: true)).catchError((e) {
+        debugPrint('Firestore customer placeOrder update error: $e');
       });
     } catch (e) {
       debugPrint('Firestore placeOrder error: $e');

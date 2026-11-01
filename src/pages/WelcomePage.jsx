@@ -183,7 +183,11 @@ const WelcomePage = () => {
       });
 
       if (res?.requiresVerification) {
-        showToast(`🎉 Registration & Payment UTR #${finalPaymentReference} submitted! Your account is pending Admin approval. You can log in once Admin confirms your plan.`, 'success');
+        if (selectedRole === 'supplier' && finalPaymentReference) {
+          showToast(`🎉 Registration & Payment UTR #${finalPaymentReference} submitted! Your account is pending Admin approval. You can log in once Admin confirms your plan.`, 'success');
+        } else {
+          showToast(`🎉 Account registered successfully as ${selectedRole}! Your account is pending Admin approval. You can log in once Admin confirms your account.`, 'success');
+        }
         setMode('login');
         setPassword('');
       } else {

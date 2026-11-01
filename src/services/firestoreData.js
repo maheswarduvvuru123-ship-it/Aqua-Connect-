@@ -2290,12 +2290,32 @@ export const verifySupplierSubscription = (subscriptionId, adminActor) => {
   if (targetSupplierId) {
     updateDoc('suppliers', 'supplierId', targetSupplierId, {
       status: 'Active',
-      isVerified: true
-    });
-    updateDoc('users', 'uid', targetSupplierId, {
       accountStatus: 'Active',
       isVerified: true
     });
+    updateDoc('users', 'uid', targetSupplierId, {
+      status: 'Active',
+      accountStatus: 'Active',
+      isVerified: true
+    });
+
+    if (isLiveFirebaseConfigured() && db) {
+      try {
+        fbSetDoc(doc(db, 'users', targetSupplierId), {
+          status: 'Active',
+          accountStatus: 'Active',
+          isVerified: true,
+          updatedAt: now.toISOString()
+        }, { merge: true }).catch(() => {});
+
+        fbSetDoc(doc(db, 'suppliers', targetSupplierId), {
+          status: 'Active',
+          accountStatus: 'Active',
+          isVerified: true,
+          updatedAt: now.toISOString()
+        }, { merge: true }).catch(() => {});
+      } catch (_) {}
+    }
 
     // Notify Supplier
     addNotification({
@@ -2323,6 +2343,256 @@ export const verifySupplierSubscription = (subscriptionId, adminActor) => {
 
   const updatedSub = getDoc('supplier_subscriptions', 'subscriptionId', sub?.subscriptionId || subscriptionId) || sub;
   return updatedSub;
+};
+
+/**
+ * Retrieve all pending Customer registrations awaiting Admin verification
+ */
+export const getPendingCustomerApprovals = () => {
+  const users = getCollection('users') || [];
+  const custs = getCollection('customers') || [];
+  const deleted = getCollection('deleted_accounts') || [];
+  const deletedIds = new Set(deleted.map(d => String(d.deletedId || d.uid || d.id || '')).filter(Boolean));
+  const deletedEmails = new Set(deleted.map(d => (d.email || '').toLowerCase().trim()).filter(Boolean));
+
+  const pendingList = [];
+  const processedCustomerIds = new Set();
+
+  // 1. Check customers collection
+  custs.forEach(c => {
+    const cId = String(c.customerId || c.userId || c.id || '');
+    if (cId && !processedCustomerIds.has(cId) && !deletedIds.has(cId) && !deletedEmails.has((c.email || '').toLowerCase().trim())) {
+      if (c.status === 'Pending Verification' || c.accountStatus === 'Pending Verification' || c.isVerified === false) {
+        pendingList.push({
+          customerId: cId,
+          name: c.name || 'Customer',
+          phone: c.phone || 'N/A',
+          email: c.email || 'N/A',
+          address: c.address || 'Address on file',
+          status: 'Pending Verification',
+          role: 'customer',
+          createdAt: c.createdAt || new Date().toISOString()
+        });
+        processedCustomerIds.add(cId);
+      }
+    }
+  });
+
+  // 2. Check users collection for customer accounts with accountStatus 'Pending Verification' or isVerified === false
+  users.forEach(u => {
+    const id = String(u.uid || u.id || '');
+    if (id && u.role === 'customer' && !processedCustomerIds.has(id) && !deletedIds.has(id) && !deletedEmails.has((u.email || '').toLowerCase().trim())) {
+      if (u.accountStatus === 'Pending Verification' || u.status === 'Pending Verification' || u.isVerified === false) {
+        pendingList.push({
+          customerId: id,
+          name: u.name || `${(u.email || '').split('@')[0]}`,
+          phone: u.phone || 'N/A',
+          email: u.email || 'N/A',
+          address: u.address || 'Address on file',
+          status: 'Pending Verification',
+          role: 'customer',
+          createdAt: u.createdAt || new Date().toISOString()
+        });
+        processedCustomerIds.add(id);
+      }
+    }
+  });
+
+  return pendingList;
+};
+
+/**
+ * Retrieve ALL pending registrations (both Suppliers and Customers) awaiting Admin verification
+ */
+export const getAllPendingApprovals = () => {
+  const pendingSuppliers = getPendingSupplierApprovals();
+  const pendingCustomers = getPendingCustomerApprovals();
+
+  const formattedSuppliers = pendingSuppliers.map(s => ({
+    id: s.supplierId,
+    subscriptionId: s.subscriptionId,
+    name: s.supplierName,
+    role: 'supplier',
+    phone: s.phone || '',
+    email: s.email || '',
+    details: `${s.planName} (₹${(s.amount || 0).toLocaleString('en-IN')})`,
+    paymentReference: s.paymentReference,
+    status: 'Pending Verification',
+    createdAt: s.createdAt
+  }));
+
+  const formattedCustomers = pendingCustomers.map(c => ({
+    id: c.customerId,
+    name: c.name,
+    role: 'customer',
+    phone: c.phone,
+    email: c.email,
+    details: c.address || 'Customer Account',
+    paymentReference: 'Free Consumer Verification',
+    status: 'Pending Verification',
+    createdAt: c.createdAt
+  }));
+
+  return [...formattedSuppliers, ...formattedCustomers];
+};
+
+/**
+ * Admin action to 1-Click Accept & Verify any Customer Account
+ */
+export const verifyCustomerAccount = (customerId, adminActor) => {
+  const cleanId = String(customerId || '').trim();
+  if (!cleanId) throw new Error('Customer ID is required');
+
+  const now = new Date().toISOString();
+
+  // Update customers collection
+  const custDoc = getDoc('customers', 'customerId', cleanId) ||
+                  (getCollection('customers') || []).find(c => c.customerId === cleanId || c.userId === cleanId || c.id === cleanId);
+  if (custDoc) {
+    updateDoc('customers', 'customerId', custDoc.customerId || cleanId, {
+      status: 'Active',
+      accountStatus: 'Active',
+      isVerified: true,
+      verifiedAt: now,
+      verifiedBy: adminActor?.name || 'Administrator',
+      updatedAt: now
+    });
+  }
+
+  // Update users collection
+  const userDoc = getDoc('users', 'uid', cleanId) ||
+                  (getCollection('users') || []).find(u => u.uid === cleanId || u.id === cleanId || (custDoc && u.email === custDoc.email));
+  if (userDoc) {
+    updateDoc('users', 'uid', userDoc.uid || cleanId, {
+      status: 'Active',
+      accountStatus: 'Active',
+      isVerified: true,
+      verifiedAt: now,
+      verifiedBy: adminActor?.name || 'Administrator',
+      updatedAt: now
+    });
+  }
+
+  // Direct Firestore Sync if live Firebase is configured
+  if (isLiveFirebaseConfigured() && db) {
+    try {
+      const uRef = doc(db, 'users', cleanId);
+      fbSetDoc(uRef, {
+        status: 'Active',
+        accountStatus: 'Active',
+        isVerified: true,
+        verifiedAt: now,
+        verifiedBy: adminActor?.name || 'Administrator',
+        updatedAt: now
+      }, { merge: true }).catch(() => {});
+
+      const cRef = doc(db, 'customers', cleanId);
+      fbSetDoc(cRef, {
+        status: 'Active',
+        accountStatus: 'Active',
+        isVerified: true,
+        verifiedAt: now,
+        verifiedBy: adminActor?.name || 'Administrator',
+        updatedAt: now
+      }, { merge: true }).catch(() => {});
+    } catch (e) {
+      console.warn('Firestore customer verification sync error:', e);
+    }
+  }
+
+  // Notify customer
+  addNotification({
+    userId: cleanId,
+    role: 'customer',
+    title: '🎉 Account Verified & Approved!',
+    message: 'Your customer account has been approved by the Administrator. You can now sign in and order water!',
+    type: 'account_update'
+  });
+
+  logAuditEvent(
+    adminActor || { uid: 'admin_001', name: 'Admin', role: 'admin' },
+    'CUSTOMER_ACCOUNT_VERIFIED',
+    'customer',
+    cleanId,
+    { customerId: cleanId, name: custDoc?.name || userDoc?.name }
+  );
+
+  notifyListeners('customers');
+  notifyListeners('users');
+  notifyListeners('all');
+
+  return { success: true, customerId: cleanId };
+};
+
+/**
+ * Admin action to Reject any Pending Registration (Supplier or Customer)
+ */
+export const rejectPendingAccount = (id, role, adminActor, reason = 'Registration declined by Administrator') => {
+  const cleanId = String(id || '').trim();
+  if (!cleanId) return;
+
+  const now = new Date().toISOString();
+
+  if (role === 'supplier') {
+    updateDoc('suppliers', 'supplierId', cleanId, {
+      status: 'Rejected',
+      accountStatus: 'Rejected',
+      isVerified: false,
+      rejectionReason: reason,
+      updatedAt: now
+    });
+    // Also mark pending subscription
+    const subs = store.supplier_subscriptions || [];
+    const pendingSub = subs.find(s => s.supplierId === cleanId && (s.status === 'Pending Verification' || s.status === 'Pending'));
+    if (pendingSub) {
+      updateDoc('supplier_subscriptions', 'subscriptionId', pendingSub.subscriptionId, {
+        status: 'Rejected',
+        rejectionReason: reason,
+        updatedAt: now
+      });
+    }
+  } else {
+    updateDoc('customers', 'customerId', cleanId, {
+      status: 'Rejected',
+      accountStatus: 'Rejected',
+      isVerified: false,
+      rejectionReason: reason,
+      updatedAt: now
+    });
+  }
+
+  updateDoc('users', 'uid', cleanId, {
+    status: 'Rejected',
+    accountStatus: 'Rejected',
+    isVerified: false,
+    rejectionReason: reason,
+    updatedAt: now
+  });
+
+  if (isLiveFirebaseConfigured() && db) {
+    try {
+      const uRef = doc(db, 'users', cleanId);
+      fbSetDoc(uRef, {
+        status: 'Rejected',
+        accountStatus: 'Rejected',
+        isVerified: false,
+        rejectionReason: reason,
+        updatedAt: now
+      }, { merge: true }).catch(() => {});
+    } catch (_) {}
+  }
+
+  logAuditEvent(
+    adminActor || { uid: 'admin_001', name: 'Admin', role: 'admin' },
+    'ACCOUNT_REGISTRATION_REJECTED',
+    role || 'account',
+    cleanId,
+    { id: cleanId, role, reason }
+  );
+
+  notifyListeners(role === 'supplier' ? 'suppliers' : 'customers');
+  notifyListeners('users');
+  notifyListeners('all');
 };
 
 /**
@@ -2373,16 +2643,17 @@ export const getSupplierPaymentDetails = (supplierId) => {
 export const syncPlatformConfigToFirestore = () => {
   if (isLiveFirebaseConfigured() && db) {
     try {
-      const configRef = doc(db, 'users', 'platform_config');
-      fbSetDoc(configRef, {
+      const payload = {
         uid: 'platform_config',
         role: 'platform_system',
         subscription_plans: sanitizeForFirestore(store.subscription_plans || []),
         platform_settings: sanitizeForFirestore(store.platform_settings || getPlatformSettings()),
         updatedAt: new Date().toISOString()
-      }, { merge: true }).catch(err => {
-        console.warn("Could not sync platform config to Firestore:", err.message);
-      });
+      };
+      // Write to users/platform_config
+      fbSetDoc(doc(db, 'users', 'platform_config'), payload, { merge: true }).catch(() => {});
+      // Also mirror to app_settings/platform_config for multi-collection security compatibility
+      fbSetDoc(doc(db, 'app_settings', 'platform_config'), payload, { merge: true }).catch(() => {});
     } catch (e) {
       console.warn("syncPlatformConfigToFirestore error:", e);
     }

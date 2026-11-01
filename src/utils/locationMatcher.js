@@ -238,17 +238,31 @@ export const filterOrdersForSupplier = (
   const cleanEmail = (supplierEmail || '').trim().toLowerCase();
   const cleanId = String(supplierId || '').trim();
 
+  // Find all known alias IDs for this supplier (e.g. auth UID vs suppliers collection ID)
+  const allSuppliers = getCollection('suppliers') || [];
+  const matchedSupDoc = allSuppliers.find(s => 
+    (cleanId && (s.supplierId === cleanId || s.uid === cleanId || s.userId === cleanId)) ||
+    (cleanEmail && (s.email || '').toLowerCase() === cleanEmail)
+  );
+
+  const validSupplierIds = new Set([
+    cleanId,
+    `sup_${cleanId}`,
+    cleanId.replace(/^sup_/, ''),
+    matchedSupDoc?.supplierId,
+    matchedSupDoc?.uid,
+    matchedSupDoc?.userId
+  ].filter(Boolean).map(id => String(id).trim()));
+
+  const cleanPhoneDigits = (supplierPhone || '').replace(/\D/g, '');
+
   // Strict Supplier Isolation: Only show orders assigned directly to this specific supplier plant
   return orders.filter(order => {
     if (!order) return false;
     const orderSupId = String(order.supplierId || '').trim();
 
-    // 1. Direct supplier ID match
-    if (cleanId && (
-      orderSupId === cleanId || 
-      orderSupId === `sup_${cleanId}` ||
-      cleanId === `sup_${orderSupId}`
-    )) {
+    // 1. Direct supplier ID match or alias match
+    if (orderSupId && validSupplierIds.has(orderSupId)) {
       return true;
     }
 
@@ -258,6 +272,14 @@ export const filterOrdersForSupplier = (
       orderSupId.toLowerCase() === cleanEmail
     )) {
       return true;
+    }
+
+    // 3. Phone match if available
+    if (cleanPhoneDigits && cleanPhoneDigits.length >= 10 && order.supplierPhone) {
+      const orderPhoneDigits = String(order.supplierPhone).replace(/\D/g, '');
+      if (orderPhoneDigits === cleanPhoneDigits) {
+        return true;
+      }
     }
 
     return false;

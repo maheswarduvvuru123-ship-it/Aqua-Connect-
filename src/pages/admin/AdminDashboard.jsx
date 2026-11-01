@@ -25,6 +25,10 @@ import {
   getSupplierSubscription,
   verifySupplierSubscription,
   getPendingSupplierApprovals,
+  getPendingCustomerApprovals,
+  getAllPendingApprovals,
+  verifyCustomerAccount,
+  rejectPendingAccount,
   purgeAllDummyData
 } from '../../services/firestoreData';
 import { formatCurrency, formatDateTime } from '../../utils/formatters';
@@ -41,6 +45,7 @@ const AdminDashboard = ({ onNavigateTab }) => {
   const [users, setUsers] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [pendingSupplierSubs, setPendingSupplierSubs] = useState([]);
+  const [allPendingApprovals, setAllPendingApprovals] = useState([]);
 
   const loadData = () => {
     setOrders(getCollection('orders') || []);
@@ -51,6 +56,7 @@ const AdminDashboard = ({ onNavigateTab }) => {
     const custSubs = getCollection('customer_subscriptions') || [];
     setSubscriptions([...supSubs, ...custSubs]);
     setPendingSupplierSubs(getPendingSupplierApprovals());
+    setAllPendingApprovals(getAllPendingApprovals());
   };
 
   const handleDeleteOrder = (orderId) => {
@@ -217,8 +223,8 @@ const AdminDashboard = ({ onNavigateTab }) => {
         </div>
       </div>
 
-      {/* ⚡ Pending Supplier Approvals Alert — shown immediately on login if any */}
-      {pendingSupplierSubs.length > 0 && (
+      {/* ⚡ Pending Account Approvals Alert (Suppliers & Customers) */}
+      {allPendingApprovals.length > 0 && (
         <div
           style={{
             background: 'linear-gradient(135deg, #7f1d1d 0%, #b91c1c 100%)',
@@ -254,7 +260,7 @@ const AdminDashboard = ({ onNavigateTab }) => {
                   fontWeight: 800,
                   letterSpacing: '-0.3px'
                 }}>
-                  🔔 {pendingSupplierSubs.length} Supplier{pendingSupplierSubs.length > 1 ? 's' : ''} Waiting for Your Approval
+                  🔔 {allPendingApprovals.length} Account{allPendingApprovals.length > 1 ? 's' : ''} Waiting for Your Approval
                 </span>
                 <span style={{
                   fontSize: '0.7rem',
@@ -268,16 +274,16 @@ const AdminDashboard = ({ onNavigateTab }) => {
                 </span>
               </div>
               <p style={{ fontSize: '0.88rem', color: '#fecaca', margin: 0, lineHeight: 1.5 }}>
-                {pendingSupplierSubs.map(s => s.supplierName || 'Supplier').join(', ')} {pendingSupplierSubs.length === 1 ? 'has' : 'have'} submitted payment & UTR reference. Verify to unlock their account.
+                {allPendingApprovals.filter(a => a.role === 'supplier').length} Supplier(s), {allPendingApprovals.filter(a => a.role === 'customer').length} Customer(s) registered. Accept & verify to unlock their accounts.
               </p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
-            {/* Show each pending supplier as a quick-action row */}
+          <div style={{ display: 'flex', gap: '10px', flexShrink: 0, alignItems: 'center' }}>
+            {/* Show each pending account as a quick-action row */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
-              {pendingSupplierSubs.slice(0, 3).map(sub => (
-                <div key={sub.subscriptionId} style={{
+              {allPendingApprovals.slice(0, 4).map(item => (
+                <div key={item.id} style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
@@ -286,57 +292,93 @@ const AdminDashboard = ({ onNavigateTab }) => {
                   padding: '6px 12px',
                   fontSize: '0.78rem'
                 }}>
-                  <UserCheck size={14} color="#fca5a5" />
-                  <span style={{ color: '#fee2e2', fontWeight: 600 }}>
-                    {sub.supplierName || 'Supplier'}
+                  <span style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 800,
+                    padding: '2px 6px',
+                    borderRadius: '6px',
+                    backgroundColor: item.role === 'supplier' ? '#7c3aed' : '#0284c7',
+                    color: '#ffffff'
+                  }}>
+                    {item.role === 'supplier' ? '🏭 Supplier' : '👤 Customer'}
+                  </span>
+                  <span style={{ color: '#fee2e2', fontWeight: 700 }}>
+                    {item.name || 'Account'}
                   </span>
                   <span style={{ color: '#fca5a5' }}>
-                    {sub.planName || 'Plan'} • ₹{(sub.amount || 0).toLocaleString('en-IN')}
+                    {item.phone || item.details}
                   </span>
-                  {sub.paymentReference && (
+                  {item.paymentReference && item.paymentReference !== 'Free Consumer Verification' && (
                     <code style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: '1px 6px', borderRadius: '4px', fontSize: '0.72rem', color: '#fef2f2' }}>
-                      UTR: {sub.paymentReference}
+                      UTR: {item.paymentReference}
                     </code>
                   )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       try {
-                        verifySupplierSubscription(sub.subscriptionId, currentUser);
-                        showToast(`🎉 Verified & Activated ${sub.supplierName}!`, 'success');
+                        if (item.role === 'supplier') {
+                          verifySupplierSubscription(item.subscriptionId || `sub_gen_${item.id}`, currentUser);
+                        } else {
+                          verifyCustomerAccount(item.id, currentUser);
+                        }
+                        showToast(`🎉 Verified & Activated ${item.name}!`, 'success');
                         loadData();
                       } catch (err) {
                         showToast(err.message, 'error');
                       }
                     }}
                     style={{
-                      padding: '3px 8px',
+                      padding: '4px 10px',
                       backgroundColor: '#16a34a',
                       color: '#ffffff',
                       border: 'none',
                       borderRadius: '6px',
-                      fontSize: '0.7rem',
-                      fontWeight: 700,
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
                       cursor: 'pointer',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '3px',
                       marginLeft: '6px'
                     }}
-                    title="1-Click Approve this supplier"
+                    title="1-Click Approve this account"
                   >
                     <Check size={12} /> Approve
                   </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm(`Decline and reject registration for ${item.name}?`)) {
+                        rejectPendingAccount(item.id, item.role, currentUser);
+                        showToast(`Declined registration for ${item.name}.`, 'info');
+                        loadData();
+                      }
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      backgroundColor: 'rgba(0,0,0,0.3)',
+                      color: '#fee2e2',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                    title="Reject registration"
+                  >
+                    ✕
+                  </button>
                 </div>
               ))}
-              {pendingSupplierSubs.length > 3 && (
+              {allPendingApprovals.length > 4 && (
                 <span style={{ fontSize: '0.72rem', color: '#fca5a5', fontWeight: 600 }}>
-                  +{pendingSupplierSubs.length - 3} more pending...
+                  +{allPendingApprovals.length - 4} more pending...
                 </span>
               )}
             </div>
             <button
-              onClick={() => onNavigateTab('subscriptions')}
+              onClick={() => onNavigateTab('accounts')}
               style={{
                 padding: '12px 22px',
                 backgroundColor: '#ffffff',

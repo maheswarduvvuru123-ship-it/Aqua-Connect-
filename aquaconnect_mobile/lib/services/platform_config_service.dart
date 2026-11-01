@@ -48,13 +48,9 @@ class PlatformConfigService {
 
   void _initLiveListener() {
     try {
-      FirebaseFirestore.instance
-          .collection('users')
-          .doc('platform_config')
-          .snapshots()
-          .listen((snapshot) {
+      void processSnapshot(DocumentSnapshot snapshot) {
         if (snapshot.exists && snapshot.data() != null) {
-          final data = snapshot.data()!;
+          final data = snapshot.data() as Map<String, dynamic>;
           if (data['platform_settings'] is Map) {
             _settings = PlatformSettings.fromMap(
               Map<String, dynamic>.from(data['platform_settings'] as Map),
@@ -62,9 +58,21 @@ class PlatformConfigService {
             _controller.add(_settings);
           }
         }
-      }, onError: (err) {
-        debugPrint('PlatformConfigService snapshot listener error: $err');
-      });
+      }
+
+      // Listen to users/platform_config
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc('platform_config')
+          .snapshots()
+          .listen(processSnapshot, onError: (_) {});
+
+      // Also listen to app_settings/platform_config as mirror
+      FirebaseFirestore.instance
+          .collection('app_settings')
+          .doc('platform_config')
+          .snapshots()
+          .listen(processSnapshot, onError: (_) {});
     } catch (e) {
       debugPrint('PlatformConfigService initialization error: $e');
     }

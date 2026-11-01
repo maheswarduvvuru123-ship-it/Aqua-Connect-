@@ -161,7 +161,7 @@ class _SupplierHomeTabState extends State<_SupplierHomeTab> {
         title: const FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
-          child: Text('AquaConnect Supplier'),
+          child: Text('Aqua connect Supplier'),
         ),
         actions: [
           IconButton(

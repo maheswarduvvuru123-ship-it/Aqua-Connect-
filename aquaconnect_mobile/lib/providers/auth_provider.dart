@@ -128,6 +128,27 @@ class AuthProvider extends ChangeNotifier {
         return 'Login failed. Please try again.';
       }
 
+      // Check if account was deleted
+      try {
+        final deletedSnap = await FirebaseFirestore.instance
+            .collection('deleted_accounts')
+            .where('email', isEqualTo: cleanEmail)
+            .limit(1)
+            .get();
+        if (deletedSnap.docs.isNotEmpty) {
+          try { await fbUser.delete(); } catch (_) {}
+          await FirebaseAuth.instance.signOut();
+          _currentUser = null;
+          _userRole = null;
+          _isLoading = false;
+          _isLoggingIn = false;
+          notifyListeners();
+          return 'This account was permanently deleted. Sign-in is not permitted.';
+        }
+      } catch (delErr) {
+        debugPrint('Deleted accounts check: $delErr');
+      }
+
       // 2. Fetch authoritative user document from Cloud Firestore
       DocumentSnapshot userDoc = await FirebaseFirestore.instance
           .collection('users')
@@ -161,26 +182,15 @@ class AuthProvider extends ChangeNotifier {
       }
 
       if (!userDoc.exists || data.isEmpty) {
-        // If account exists in Firebase Auth but profile doc is missing/empty, auto-create profile with the designated role
-        data = {
-          'uid': fbUser.uid,
-          'name': fbUser.displayName ?? cleanEmail.split('@').first,
-          'email': cleanEmail,
-          'role': expectedRole,
-          'phone': '',
-          'address': '',
-          'city': 'Hyderabad',
-          'createdAt': DateTime.now().toIso8601String(),
-          'updatedAt': DateTime.now().toIso8601String(),
-        };
-        try {
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(fbUser.uid)
-              .set(data, SetOptions(merge: true));
-        } catch (setErr) {
-          debugPrint('Profile auto-create error: $setErr');
-        }
+        // Deleted or orphaned auth user - DO NOT auto-resurrect
+        try { await fbUser.delete(); } catch (_) {}
+        await FirebaseAuth.instance.signOut();
+        _currentUser = null;
+        _userRole = null;
+        _isLoading = false;
+        _isLoggingIn = false;
+        notifyListeners();
+        return 'Account profile not found or deleted by Administrator. Please register a new account.';
       }
       final registeredRole = (data['role']?.toString().toLowerCase() ?? 'customer');
 
@@ -434,7 +444,7 @@ class AuthProvider extends ChangeNotifier {
         // 4. If Supplier, store in suppliers collection
         await FirebaseFirestore.instance.collection('suppliers').doc(uid).set({
           'supplierId': uid,
-          'businessName': cleanName.isNotEmpty ? cleanName : 'AquaConnect Certified Water Plant',
+          'businessName': cleanName.isNotEmpty ? cleanName : 'Aqua connect Certified Water Plant',
           'ownerName': cleanName.isNotEmpty ? cleanName : 'Plant Owner',
           'phone': cleanPhone,
           'email': cleanEmail,

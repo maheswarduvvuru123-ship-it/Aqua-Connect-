@@ -570,7 +570,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       keyboardType: TextInputType.phone,
                       decoration: InputDecoration(
                         labelText: 'Mobile Number (+91)',
-                        hintText: '+91 98765 43210',
+                        hintText: '+91 85228 28688',
                         prefixIcon: const Icon(Icons.phone_outlined),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -747,7 +747,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 const Icon(Icons.shield_outlined, color: AquaTheme.primary, size: 24),
                 const SizedBox(width: 10),
                 const Text(
-                  'AquaConnect v1.0.0 Monitoring',
+                  'Aqua connect v1.0.1 Monitoring',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 const Spacer(),

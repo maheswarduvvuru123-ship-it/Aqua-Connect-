@@ -39,6 +39,8 @@ class LocalityPreset {
 }
 
 const List<LocalityPreset> popularLocalities = [
+  LocalityPreset(name: 'Vaddagandla (NH40)', city: 'Allagadda', pincode: '518112', lat: 15.1528, lng: 78.5085),
+  LocalityPreset(name: 'Allagadda Town', city: 'Nandyal', pincode: '518543', lat: 15.1325, lng: 78.5147),
   LocalityPreset(name: 'Madhapur', city: 'Hyderabad', pincode: '500081', lat: 17.4483, lng: 78.3915),
   LocalityPreset(name: 'Hitec City', city: 'Hyderabad', pincode: '500081', lat: 17.4435, lng: 78.3772),
   LocalityPreset(name: 'Gachibowli', city: 'Hyderabad', pincode: '500032', lat: 17.4401, lng: 78.3489),
@@ -232,11 +234,11 @@ class _ZomatoLocationPickerDialogState extends State<ZomatoLocationPickerDialog>
       final locName = parts.first.trim();
       final cityName = parts.length > 1 ? parts[1].trim() : 'Local Area';
       _selectedLocality = LocalityPreset(
-        name: locName.isNotEmpty ? locName : 'Selected Area',
-        city: cityName,
-        pincode: '',
-        lat: 17.4483,
-        lng: 78.3915,
+        name: locName.isNotEmpty ? locName : 'Vaddagandla (NH40)',
+        city: cityName.isNotEmpty ? cityName : 'Allagadda',
+        pincode: '518112',
+        lat: 15.1528,
+        lng: 78.5085,
       );
     }
   }
@@ -255,8 +257,8 @@ class _ZomatoLocationPickerDialogState extends State<ZomatoLocationPickerDialog>
         name: locName.isNotEmpty ? locName : clean,
         city: cityName,
         pincode: '',
-        lat: 17.4483,
-        lng: 78.3915,
+        lat: 15.1528,
+        lng: 78.5085,
       );
       _searchResults = [];
     });

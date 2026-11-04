@@ -24,6 +24,7 @@ import {
   deleteDoc,
   getSupplierSubscription,
   verifySupplierSubscription,
+  acceptAndVerifySupplier,
   getPendingSupplierApprovals,
   getPendingCustomerApprovals,
   getAllPendingApprovals,
@@ -314,13 +315,13 @@ const AdminDashboard = ({ onNavigateTab }) => {
                     </code>
                   )}
                   <button
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
                       try {
                         if (item.role === 'supplier') {
-                          verifySupplierSubscription(item.subscriptionId || `sub_gen_${item.id}`, currentUser);
+                          await acceptAndVerifySupplier(item, currentUser);
                         } else {
-                          verifyCustomerAccount(item.id, currentUser);
+                          await verifyCustomerAccount(item.id, currentUser);
                         }
                         showToast(`🎉 Verified & Activated ${item.name}!`, 'success');
                         loadData();

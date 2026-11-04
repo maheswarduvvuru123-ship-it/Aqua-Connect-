@@ -24,6 +24,7 @@ import {
   subscribeToData, 
   getSupplierSubscription,
   verifySupplierSubscription,
+  acceptAndVerifySupplier,
   verifyCustomerAccount,
   rejectPendingAccount,
   getAllPendingApprovals,
@@ -620,16 +621,21 @@ const AdminAccounts = () => {
                   <div style={{ display: 'flex', gap: '8px', marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #fed7aa' }}>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (item.role === 'supplier') {
-                          const subId = item.subscriptionId || `sub_gen_${item.supplierId || item.id}`;
-                          verifySupplierSubscription(subId, currentUser);
-                          showToast(`✓ Accepted & Verified supplier: ${item.name}!`, 'success');
-                        } else {
-                          verifyCustomerAccount(item.id, currentUser);
-                          showToast(`✓ Accepted & Verified customer: ${item.name}!`, 'success');
+                      onClick={async () => {
+                        try {
+                          if (item.role === 'supplier') {
+                            await acceptAndVerifySupplier(item, currentUser);
+                            showToast(`✓ Accepted & Verified supplier: ${item.name}! Stored in Water Suppliers directory.`, 'success');
+                            setActiveTab('suppliers');
+                          } else {
+                            await verifyCustomerAccount(item.id || item.customerId, currentUser);
+                            showToast(`✓ Accepted & Verified customer: ${item.name}! Stored in Customers directory.`, 'success');
+                            setActiveTab('customers');
+                          }
+                          loadData();
+                        } catch (err) {
+                          showToast(`Verification failed: ${err.message}`, 'error');
                         }
-                        loadData();
                       }}
                       style={{
                         flex: 1,
@@ -787,10 +793,9 @@ const AdminAccounts = () => {
                     {(sub?.status === 'Pending Verification' || sup.status === 'Pending Verification' || !sup.isVerified) && (
                       <>
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             try {
-                              const subIdToVerify = sub?.subscriptionId || `sub_gen_${sup.supplierId}`;
-                              verifySupplierSubscription(subIdToVerify, currentUser);
+                              await acceptAndVerifySupplier(sup, currentUser);
                               showToast(`Confirmed & Activated ${sup.businessName || sup.plantName || sup.ownerName}!`, 'success');
                               loadData();
                             } catch (e) {
@@ -905,187 +910,201 @@ const AdminAccounts = () => {
           })}
         </div>
       ) : activeTab === 'customers' ? (
-        <div className="card" style={{ padding: 0, borderRadius: '16px', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
-            <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid var(--border-light)' }}>
-              <tr>
-                <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)' }}>Customer Name</th>
-                <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)' }}>Contact Phone</th>
-                <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)' }}>Email</th>
-                <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)' }}>Primary Address</th>
-                <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)' }}>Total Orders</th>
-                <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)' }}>Account Status</th>
-                <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center' }}>Admin Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredCustomers.length === 0 ? (
+        <div className="card" style={{ padding: 0, borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>
+          {/* Horizontal Slide Guidance Banner */}
+          <div style={{ padding: '10px 18px', backgroundColor: '#f1f5f9', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: '#334155', fontWeight: 600 }}>
+              <span>↔️ <strong>Slide / Scroll Horizontally:</strong> Move table left-to-right to view all columns & action buttons (Delete, Stop, Accept).</span>
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>
+              Showing {filteredCustomers.length} Live Customer Accounts
+            </div>
+          </div>
+
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}>
+            <table style={{ width: '100%', minWidth: '1050px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+              <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid var(--border-light)' }}>
                 <tr>
-                  <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    No customer accounts found.
-                  </td>
+                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', minWidth: '180px' }}>Customer Name</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', minWidth: '130px' }}>Contact Phone</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', minWidth: '180px' }}>Email</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', minWidth: '220px' }}>Primary Address</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center', minWidth: '90px' }}>Total Orders</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center', minWidth: '140px' }}>Account Status</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center', minWidth: '220px' }}>Admin Actions</th>
                 </tr>
-              ) : (
-                filteredCustomers.map(cust => (
-                  <tr key={cust.customerId} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                    <td style={{ padding: '14px 18px', fontWeight: 700 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>{cust.name}</span>
-                        <span 
-                          style={{
-                            fontSize: '0.68rem',
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            borderRadius: '8px',
-                            backgroundColor: isDummyAccount(cust) ? '#fef3c7' : '#dcfce7',
-                            color: isDummyAccount(cust) ? '#92400e' : '#15803d'
-                          }}
-                        >
-                          {isDummyAccount(cust) ? '📦 Demo' : '🟢 Live'}
-                        </span>
-                      </div>
-                    </td>
-                    <td style={{ padding: '14px 18px', color: 'var(--text-secondary)' }}>
-                      {cust.phone || 'N/A'}
-                    </td>
-                    <td style={{ padding: '14px 18px', color: 'var(--text-secondary)' }}>
-                      {cust.email || 'N/A'}
-                    </td>
-                    <td style={{ padding: '14px 18px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                      {cust.address || 'Address on file'}
-                    </td>
-                    <td style={{ padding: '14px 18px', fontWeight: 800 }}>
-                      {cust.totalOrders || 0}
-                    </td>
-                    <td style={{ padding: '14px 18px' }}>
-                      {cust.status === 'Pending Verification' || cust.accountStatus === 'Pending Verification' || !cust.isVerified ? (
-                        <span style={{ fontSize: '0.75rem', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', backgroundColor: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74' }}>
-                          ⏳ Pending Approval
-                        </span>
-                      ) : cust.status === 'Suspended' || cust.isSuspended ? (
-                        <span style={{ fontSize: '0.75rem', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', backgroundColor: '#fffbeb', color: '#b45309', border: '1px solid #fde68a' }}>
-                          ⏸️ Stopped
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', backgroundColor: '#dcfce7', color: '#15803d' }}>
-                          🟢 Active
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ padding: '14px 18px', textAlign: 'center' }}>
-                      <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-                        {(cust.status === 'Pending Verification' || cust.accountStatus === 'Pending Verification' || !cust.isVerified) && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleVerifyCustomer(cust.customerId || cust.id, cust.name || cust.email)}
-                              style={{
-                                padding: '4px 8px',
-                                backgroundColor: '#16a34a',
-                                color: '#ffffff',
-                                border: 'none',
-                                borderRadius: '6px',
-                                fontSize: '0.74rem',
-                                fontWeight: 800,
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}
-                              title="Accept & verify customer account"
-                            >
-                              ✓ Accept
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRejectAccount(cust.customerId || cust.id, 'customer', cust.name || cust.email)}
-                              style={{
-                                padding: '4px 8px',
-                                backgroundColor: '#fee2e2',
-                                color: '#b91c1c',
-                                border: '1px solid #f87171',
-                                borderRadius: '6px',
-                                fontSize: '0.74rem',
-                                fontWeight: 700,
-                                cursor: 'pointer'
-                              }}
-                              title="Reject registration"
-                            >
-                              ✕ Reject
-                            </button>
-                          </>
-                        )}
-                        {!(cust.status === 'Pending Verification' || cust.accountStatus === 'Pending Verification' || !cust.isVerified) && (
-                          cust.status === 'Suspended' || cust.isSuspended ? (
-                            <button
-                              type="button"
-                              onClick={() => handleToggleSuspendCustomer(cust.customerId, cust.name, true)}
-                              style={{
-                                padding: '4px 8px',
-                                backgroundColor: '#ecfdf5',
-                                color: '#047857',
-                                border: '1px solid #6ee7b7',
-                                borderRadius: '6px',
-                                fontSize: '0.75rem',
-                                fontWeight: 800,
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}
-                              title="Reactivate customer account so they can continue as usual"
-                            >
-                              <Play size={12} fill="#047857" /> Continue
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleToggleSuspendCustomer(cust.customerId, cust.name, false)}
-                              style={{
-                                padding: '4px 8px',
-                                backgroundColor: '#fffbeb',
-                                color: '#b45309',
-                                border: '1px solid #fde68a',
-                                borderRadius: '6px',
-                                fontSize: '0.75rem',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}
-                              title="Temporarily stop customer account"
-                            >
-                              <Pause size={12} /> Stop
-                            </button>
-                          )
-                        )}
-                        <button
-                          onClick={() => handleDeleteCustomer(cust.customerId, cust.name)}
-                          style={{
-                            padding: '4px 8px',
-                            backgroundColor: '#fff1f2',
-                            color: '#e11d48',
-                            border: '1px solid #fecdd3',
-                            borderRadius: '6px',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                          title="Permanently delete customer account"
-                        >
-                          <Trash2 size={12} /> Delete
-                        </button>
-                      </div>
+              </thead>
+              <tbody>
+                {filteredCustomers.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      No customer accounts found.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredCustomers.map(cust => (
+                    <tr key={cust.customerId} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                      <td style={{ padding: '14px 18px', fontWeight: 700 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>{cust.name}</span>
+                          <span 
+                            style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '8px',
+                              backgroundColor: isDummyAccount(cust) ? '#fef3c7' : '#dcfce7',
+                              color: isDummyAccount(cust) ? '#92400e' : '#15803d'
+                            }}
+                          >
+                            {isDummyAccount(cust) ? '📦 Demo' : '🟢 Live'}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '14px 18px', color: 'var(--text-secondary)' }}>
+                        {cust.phone || 'N/A'}
+                      </td>
+                      <td style={{ padding: '14px 18px', color: 'var(--text-secondary)' }}>
+                        {cust.email || 'N/A'}
+                      </td>
+                      <td style={{ padding: '14px 18px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                        {cust.address || 'Address on file'}
+                      </td>
+                      <td style={{ padding: '14px 18px', fontWeight: 800, textAlign: 'center' }}>
+                        {cust.totalOrders || 0}
+                      </td>
+                      <td style={{ padding: '14px 18px', textAlign: 'center' }}>
+                        {cust.status === 'Pending Verification' || cust.accountStatus === 'Pending Verification' || !cust.isVerified ? (
+                          <span style={{ fontSize: '0.75rem', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', backgroundColor: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74' }}>
+                            ⏳ Pending Approval
+                          </span>
+                        ) : cust.status === 'Suspended' || cust.isSuspended ? (
+                          <span style={{ fontSize: '0.75rem', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', backgroundColor: '#fffbeb', color: '#b45309', border: '1px solid #fde68a' }}>
+                            ⏸️ Stopped
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', backgroundColor: '#dcfce7', color: '#15803d' }}>
+                            🟢 Active
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '14px 18px', textAlign: 'center', minWidth: '220px' }}>
+                        <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'center' }}>
+                          {(cust.status === 'Pending Verification' || cust.accountStatus === 'Pending Verification' || !cust.isVerified) && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleVerifyCustomer(cust.customerId || cust.id, cust.name || cust.email)}
+                                style={{
+                                  padding: '5px 10px',
+                                  backgroundColor: '#16a34a',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                                title="Accept & verify customer account"
+                              >
+                                ✓ Accept
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRejectAccount(cust.customerId || cust.id, 'customer', cust.name || cust.email)}
+                                style={{
+                                  padding: '5px 10px',
+                                  backgroundColor: '#fee2e2',
+                                  color: '#b91c1c',
+                                  border: '1px solid #f87171',
+                                  borderRadius: '6px',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                                title="Reject registration"
+                              >
+                                ✕ Reject
+                              </button>
+                            </>
+                          )}
+                          {!(cust.status === 'Pending Verification' || cust.accountStatus === 'Pending Verification' || !cust.isVerified) && (
+                            cust.status === 'Suspended' || cust.isSuspended ? (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSuspendCustomer(cust.customerId, cust.name, true)}
+                                style={{
+                                  padding: '5px 10px',
+                                  backgroundColor: '#ecfdf5',
+                                  color: '#047857',
+                                  border: '1px solid #6ee7b7',
+                                  borderRadius: '6px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                                title="Reactivate customer account so they can continue as usual"
+                              >
+                                <Play size={12} fill="#047857" /> Continue
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSuspendCustomer(cust.customerId, cust.name, false)}
+                                style={{
+                                  padding: '5px 10px',
+                                  backgroundColor: '#fffbeb',
+                                  color: '#b45309',
+                                  border: '1px solid #fde68a',
+                                  borderRadius: '6px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                                title="Temporarily stop customer account"
+                              >
+                                <Pause size={12} /> Stop
+                              </button>
+                            )
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCustomer(cust.customerId || cust.id, cust.name)}
+                            style={{
+                              padding: '5px 10px',
+                              backgroundColor: '#fee2e2',
+                              color: '#b91c1c',
+                              border: '1px solid #f87171',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              boxShadow: '0 1px 3px rgba(185, 28, 28, 0.15)'
+                            }}
+                            title="Permanently delete customer account"
+                          >
+                            <Trash2 size={12} /> Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         /* BACKEND DELETED ACCOUNTS ARCHIVE TAB */

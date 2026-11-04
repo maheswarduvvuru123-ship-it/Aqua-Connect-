@@ -936,7 +936,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       onPressed: () => _showObservabilityDialog(context),
                       icon: const Icon(Icons.speed, size: 14, color: AquaTheme.textSecondary),
                       label: const Text(
-                        'Release v1.0.6 System Status',
+                        'Release v1.0.8 System Status',
                         style: TextStyle(fontSize: 11, color: AquaTheme.textSecondary, fontWeight: FontWeight.w600),
                       ),
                     ),

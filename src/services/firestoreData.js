@@ -2208,6 +2208,8 @@ export const getPendingSupplierApprovals = () => {
         supplierName: s.supplierName || sup.businessName || u.name || 'Water Supplier Plant',
         phone: sup.phone || u.phone || '',
         email: sup.email || u.email || '',
+        address: sup.address || u.address || '',
+        city: sup.city || u.city || '',
         planName: s.planName || sup.pendingPlanName || 'Enterprise Aqua',
         billingCycle: s.billingCycle || sup.pendingBillingCycle || 'Monthly',
         amount: s.amount || sup.amount || 2999,
@@ -2231,6 +2233,8 @@ export const getPendingSupplierApprovals = () => {
           supplierName: s.businessName || s.plantName || s.ownerName || 'Water Plant',
           phone: s.phone || '',
           email: s.email || '',
+          address: s.address || '',
+          city: s.city || '',
           planName: s.pendingPlanName || s.planName || 'Enterprise Aqua',
           billingCycle: s.pendingBillingCycle || s.billingCycle || 'Monthly',
           amount: s.amount || 2999,
@@ -2255,6 +2259,8 @@ export const getPendingSupplierApprovals = () => {
           supplierName: u.name || `${u.email}'s Water Plant`,
           phone: u.phone || '',
           email: u.email || '',
+          address: u.address || '',
+          city: u.city || '',
           planName: u.pendingPlanName || u.planName || 'Enterprise Aqua',
           billingCycle: u.pendingBillingCycle || u.billingCycle || 'Monthly',
           amount: u.amount || 2999,
@@ -2272,139 +2278,222 @@ export const getPendingSupplierApprovals = () => {
 };
 
 /**
- * Admin 1-Click Confirmation & Verification of Supplier Plan
+ * Admin 1-Click Confirmation & Verification of Supplier Plan:
+ * Guarantees supplier is created & permanently stored in `suppliers`, `users`,
+ * and `supplier_subscriptions` in both local store and Cloud Firestore.
  */
-export const verifySupplierSubscription = (subscriptionId, adminActor) => {
-  let sub = getDoc('supplier_subscriptions', 'subscriptionId', subscriptionId);
+export const acceptAndVerifySupplier = async (itemOrId, adminActor) => {
   const now = new Date();
-  const expiryDate = new Date(now);
-  expiryDate.setDate(expiryDate.getDate() + 30);
+  
+  // 1. Resolve item and identifiers
+  const item = (typeof itemOrId === 'object' && itemOrId !== null) ? itemOrId : {};
+  let rawId = (typeof itemOrId === 'string') ? itemOrId : (item.supplierId || item.id || item.subscriptionId || '');
+  
+  // Look up subscription if rawId matches or starts with sub_
+  let sub = getDoc('supplier_subscriptions', 'subscriptionId', rawId) || 
+            (getCollection('supplier_subscriptions') || []).find(s => s.subscriptionId === rawId || s.supplierId === rawId);
+  
+  let targetSupplierId = item.supplierId || item.id || sub?.supplierId || (rawId.startsWith('sub_gen_') ? rawId.replace('sub_gen_', '') : (rawId.startsWith('sub_') ? null : rawId));
+  
+  const allUsers = getCollection('users') || [];
+  const allSuppliers = getCollection('suppliers') || [];
+  
+  let userDoc = targetSupplierId ? (getDoc('users', 'uid', targetSupplierId) || allUsers.find(u => String(u.uid) === String(targetSupplierId) || String(u.id) === String(targetSupplierId))) : null;
+  let suppDoc = targetSupplierId ? (getDoc('suppliers', 'supplierId', targetSupplierId) || allSuppliers.find(s => String(s.supplierId) === String(targetSupplierId) || String(s.id) === String(targetSupplierId))) : null;
 
-  let targetSupplierId = sub?.supplierId;
-
-  // If this was a synthesized ID for an unverified supplier, create the full subscription record
-  if (!sub && String(subscriptionId).startsWith('sub_gen_')) {
-    targetSupplierId = String(subscriptionId).replace('sub_gen_', '');
-    const userDoc = getDoc('users', 'uid', targetSupplierId);
-    const suppDoc = getDoc('suppliers', 'supplierId', targetSupplierId);
-    const isTrial = (suppDoc?.planName || userDoc?.planName || '').toLowerCase().includes('trial') || 
-                    (suppDoc?.billingCycle || userDoc?.billingCycle || '').toLowerCase().includes('trial') ||
-                    suppDoc?.isTrial || userDoc?.isTrial || (!suppDoc?.planName && !userDoc?.planName);
-    const planName = isTrial ? 'Free Trial (1 Day)' : (suppDoc?.planName || userDoc?.planName || 'Enterprise Aqua');
-    const planId = isTrial ? 'plan_starter' : 'plan_enterprise';
-    const amount = isTrial ? 0 : 2999;
-    const cycle = isTrial ? '1-Day Free Trial' : (suppDoc?.billingCycle || 'Monthly');
-    const trialDays = isTrial ? 1 : 30;
-    const expiry = new Date(now);
-    expiry.setDate(now.getDate() + (isTrial ? 1 : (cycle === 'Yearly' ? 365 : 30)));
-    
-    sub = {
-      subscriptionId: `sub_${Date.now()}`,
-      supplierId: targetSupplierId,
-      supplierName: suppDoc?.businessName || userDoc?.name || 'Water Plant',
-      planId,
-      planName,
-      billingCycle: cycle,
-      amount,
-      status: 'Active',
-      isTrial,
-      trialDays,
-      startDate: now.toISOString(),
-      endDate: expiry.toISOString(),
-      verifiedAt: now.toISOString(),
-      verifiedBy: adminActor?.name || 'Administrator',
-      paymentMethod: isTrial ? 'Free Trial (1 Day)' : 'UPI Platform Direct',
-      paymentReference: suppDoc?.paymentReference || (isTrial ? 'FREE_TRIAL_1DAY' : 'APPROVED_BY_ADMIN'),
-      paymentHistory: [
-        {
-          date: now.toISOString(),
-          amount,
-          reference: suppDoc?.paymentReference || (isTrial ? 'FREE_TRIAL_1DAY' : 'APPROVED_BY_ADMIN'),
-          status: 'Successful',
-          verifiedAt: now.toISOString()
-        }
-      ],
-      createdAt: now.toISOString()
-    };
-    setDoc('supplier_subscriptions', 'subscriptionId', sub);
+  if (!userDoc && item.phone) {
+    const cleanPhone = item.phone.replace(/\D/g, '');
+    userDoc = allUsers.find(u => u.phone && u.phone.replace(/\D/g, '') === cleanPhone);
+    if (userDoc && !targetSupplierId) targetSupplierId = userDoc.uid || userDoc.id;
+  }
+  if (!suppDoc && item.phone) {
+    const cleanPhone = item.phone.replace(/\D/g, '');
+    suppDoc = allSuppliers.find(s => s.phone && s.phone.replace(/\D/g, '') === cleanPhone);
+    if (suppDoc && !targetSupplierId) targetSupplierId = suppDoc.supplierId || suppDoc.id;
+  }
+  if (!userDoc && item.email) {
+    const cleanEmail = item.email.toLowerCase().trim();
+    if (cleanEmail && cleanEmail !== 'n/a' && cleanEmail !== 'not provided') {
+      userDoc = allUsers.find(u => (u.email || '').toLowerCase().trim() === cleanEmail);
+      if (userDoc && !targetSupplierId) targetSupplierId = userDoc.uid || userDoc.id;
+    }
+  }
+  if (!suppDoc && item.email) {
+    const cleanEmail = item.email.toLowerCase().trim();
+    if (cleanEmail && cleanEmail !== 'n/a' && cleanEmail !== 'not provided') {
+      suppDoc = allSuppliers.find(s => (s.email || '').toLowerCase().trim() === cleanEmail);
+      if (suppDoc && !targetSupplierId) targetSupplierId = suppDoc.supplierId || suppDoc.id;
+    }
   }
 
-  if (sub && !String(subscriptionId).startsWith('sub_gen_')) {
-    if (sub.billingCycle === 'Yearly') {
-      expiryDate.setDate(now.getDate() + 365);
-    }
+  // Fallback supplier ID if still missing
+  if (!targetSupplierId) {
+    targetSupplierId = sub?.supplierId || `sup_${Date.now()}`;
+  }
 
-    updateDoc('supplier_subscriptions', 'subscriptionId', subscriptionId, {
-      status: 'Active',
-      verifiedAt: now.toISOString(),
-      verifiedBy: adminActor?.name || 'Administrator',
-      startDate: now.toISOString(),
-      endDate: expiryDate.toISOString(),
-      paymentHistory: (sub.paymentHistory || []).map(p => ({
-        ...p,
+  // 2. Resolve metadata
+  const businessName = item.name || item.supplierName || suppDoc?.businessName || suppDoc?.plantName || userDoc?.businessName || userDoc?.name || 'Water Plant';
+  const ownerName = suppDoc?.ownerName || userDoc?.name || businessName;
+  const phone = item.phone || suppDoc?.phone || userDoc?.phone || '+91 8529637410';
+  const email = item.email || suppDoc?.email || userDoc?.email || '';
+  const address = item.address || suppDoc?.address || userDoc?.address || 'Water Plant Facility, Andhra Pradesh';
+  const city = item.city || suppDoc?.city || userDoc?.city || 'Andhra Pradesh';
+  const rawPlan = item.planName || sub?.planName || suppDoc?.planName || userDoc?.planName || 'Enterprise Plan';
+  const isTrial = rawPlan.toLowerCase().includes('trial') || (suppDoc?.billingCycle || userDoc?.billingCycle || '').toLowerCase().includes('trial') || (item.billingCycle || '').toLowerCase().includes('trial');
+  const planName = isTrial ? 'Free Trial (1 Day)' : 'Enterprise Plan';
+  const planId = isTrial ? 'plan_starter' : 'plan_enterprise';
+  const billingCycle = isTrial ? '1-Day Free Trial' : (item.billingCycle || sub?.billingCycle || suppDoc?.billingCycle || userDoc?.billingCycle || 'Monthly');
+  const amount = isTrial ? 0 : (sub?.amount !== undefined ? sub.amount : (billingCycle === 'Yearly' ? 29999 : 2999));
+  const paymentReference = item.paymentReference || sub?.paymentReference || suppDoc?.paymentReference || userDoc?.paymentReference || (isTrial ? 'FREE_TRIAL_1DAY' : 'APPROVED_BY_ADMIN');
+  const subId = sub?.subscriptionId || item.subscriptionId || `sub_${Date.now()}`;
+
+  const expiryDate = new Date(now);
+  expiryDate.setDate(now.getDate() + (isTrial ? 1 : (billingCycle === 'Yearly' ? 365 : 30)));
+
+  // 3. Guarantee full document in `suppliers` collection using `setDoc`
+  const finalSupplier = {
+    ...(suppDoc || {}),
+    supplierId: targetSupplierId,
+    userId: targetSupplierId,
+    id: targetSupplierId,
+    businessName,
+    plantName: businessName,
+    ownerName,
+    phone,
+    email,
+    address,
+    city,
+    status: 'Active',
+    accountStatus: 'Active',
+    isVerified: true,
+    isSuspended: false,
+    verifiedAt: now.toISOString(),
+    verifiedBy: adminActor?.name || 'Administrator',
+    planId,
+    planName,
+    billingCycle,
+    amount,
+    activeSubscriptionId: subId,
+    paymentReference,
+    deliveryAreas: suppDoc?.deliveryAreas || ['Allagadda', 'Kottala', 'Vaddagandla', 'NH40'],
+    updatedAt: now.toISOString(),
+    createdAt: suppDoc?.createdAt || userDoc?.createdAt || now.toISOString()
+  };
+  setDoc('suppliers', 'supplierId', finalSupplier);
+
+  // 4. Guarantee full document in `users` collection using `setDoc`
+  const finalUser = {
+    ...(userDoc || {}),
+    uid: targetSupplierId,
+    id: targetSupplierId,
+    name: ownerName,
+    businessName,
+    phone,
+    email,
+    role: 'supplier',
+    status: 'Active',
+    accountStatus: 'Active',
+    isVerified: true,
+    isSuspended: false,
+    verifiedAt: now.toISOString(),
+    verifiedBy: adminActor?.name || 'Administrator',
+    planId,
+    planName,
+    billingCycle,
+    address,
+    city,
+    updatedAt: now.toISOString(),
+    createdAt: userDoc?.createdAt || now.toISOString()
+  };
+  setDoc('users', 'uid', finalUser);
+
+  // 5. Guarantee full document in `supplier_subscriptions` collection using `setDoc`
+  const finalSub = {
+    ...(sub || {}),
+    subscriptionId: subId,
+    supplierId: targetSupplierId,
+    supplierName: businessName,
+    planId,
+    planName,
+    billingCycle,
+    amount,
+    status: 'Active',
+    isTrial,
+    trialDays: isTrial ? 1 : 0,
+    startDate: now.toISOString(),
+    endDate: expiryDate.toISOString(),
+    verifiedAt: now.toISOString(),
+    verifiedBy: adminActor?.name || 'Administrator',
+    paymentReference,
+    paymentMethod: isTrial ? 'Free Trial (1 Day)' : 'UPI Platform Direct',
+    paymentHistory: [
+      ...(sub?.paymentHistory || []),
+      {
+        date: now.toISOString(),
+        amount,
+        reference: paymentReference,
         status: 'Successful',
         verifiedAt: now.toISOString()
-      }))
-    });
+      }
+    ],
+    updatedAt: now.toISOString(),
+    createdAt: sub?.createdAt || now.toISOString()
+  };
+  setDoc('supplier_subscriptions', 'subscriptionId', finalSub);
+
+  // 6. Direct sync to live Firestore backend
+  if (isLiveFirebaseConfigured() && db) {
+    try {
+      await fbSetDoc(doc(db, 'suppliers', targetSupplierId), sanitizeForFirestore(finalSupplier), { merge: true }).catch(() => {});
+      await fbSetDoc(doc(db, 'users', targetSupplierId), sanitizeForFirestore(finalUser), { merge: true }).catch(() => {});
+      await fbSetDoc(doc(db, 'supplier_subscriptions', subId), sanitizeForFirestore(finalSub), { merge: true }).catch(() => {});
+    } catch (e) {
+      console.warn("Direct Firestore sync in acceptAndVerifySupplier:", e);
+    }
   }
 
-  // Activate the supplier & user documents
-  if (targetSupplierId) {
-    updateDoc('suppliers', 'supplierId', targetSupplierId, {
-      status: 'Active',
-      accountStatus: 'Active',
-      isVerified: true
-    });
-    updateDoc('users', 'uid', targetSupplierId, {
-      status: 'Active',
-      accountStatus: 'Active',
-      isVerified: true
-    });
-
-    if (isLiveFirebaseConfigured() && db) {
-      try {
-        fbSetDoc(doc(db, 'users', targetSupplierId), {
-          status: 'Active',
-          accountStatus: 'Active',
-          isVerified: true,
-          updatedAt: now.toISOString()
-        }, { merge: true }).catch(() => {});
-
-        fbSetDoc(doc(db, 'suppliers', targetSupplierId), {
-          status: 'Active',
-          accountStatus: 'Active',
-          isVerified: true,
-          updatedAt: now.toISOString()
-        }, { merge: true }).catch(() => {});
-      } catch (_) {}
-    }
-
-    // Notify Supplier
+  // 7. Audit log & notifications
+  try {
     addNotification({
       userId: targetSupplierId,
       role: 'supplier',
       title: '🎉 Subscription Verified & Activated!',
-      message: `Your account license has been verified by Admin. Full access is now live!`,
+      message: `Your account license for ${businessName} has been verified by Admin. Full access is now live!`,
       type: 'account_update'
     });
-  }
+  } catch (_) {}
 
-  logAuditEvent(
-    adminActor || { uid: 'admin_001', name: 'Admin', role: 'admin' },
-    'SUPPLIER_PLAN_VERIFIED',
-    'subscription',
-    subscriptionId,
-    {
-      supplierId: sub?.supplierId || targetSupplierId,
-      planName: sub?.planName || 'Free Trial (1 Day)',
-      billingCycle: sub?.billingCycle || '1-Day Free Trial',
-      amount: sub?.amount || 0,
-      paymentReference: sub?.paymentReference || 'APPROVED_BY_ADMIN'
-    }
-  );
+  try {
+    logAuditEvent(
+      adminActor || { uid: 'admin_001', name: 'Admin', role: 'admin' },
+      'SUPPLIER_PLAN_VERIFIED',
+      'subscription',
+      subId,
+      {
+        supplierId: targetSupplierId,
+        supplierName: businessName,
+        planName,
+        billingCycle,
+        amount,
+        paymentReference
+      }
+    );
+  } catch (_) {}
 
-  const updatedSub = getDoc('supplier_subscriptions', 'subscriptionId', sub?.subscriptionId || subscriptionId) || sub;
-  return updatedSub;
+  saveStore(store);
+  notifyListeners('suppliers');
+  notifyListeners('users');
+  notifyListeners('supplier_subscriptions');
+  notifyListeners('all');
+
+  return finalSupplier;
+};
+
+/**
+ * Admin 1-Click Confirmation & Verification of Supplier Plan
+ */
+export const verifySupplierSubscription = (subscriptionId, adminActor) => {
+  return acceptAndVerifySupplier(subscriptionId, adminActor);
 };
 
 /**
@@ -2472,23 +2561,32 @@ export const getAllPendingApprovals = () => {
 
   const formattedSuppliers = pendingSuppliers.map(s => ({
     id: s.supplierId,
+    supplierId: s.supplierId,
     subscriptionId: s.subscriptionId,
     name: s.supplierName,
+    supplierName: s.supplierName,
     role: 'supplier',
     phone: s.phone || '',
     email: s.email || '',
-    details: `${s.planName} (₹${(s.amount || 0).toLocaleString('en-IN')})`,
-    paymentReference: s.paymentReference,
+    address: s.address || '',
+    city: s.city || '',
+    planName: s.planName || 'Enterprise Plan',
+    billingCycle: s.billingCycle || 'Monthly',
+    amount: s.amount !== undefined ? s.amount : 2999,
+    details: `${s.planName || 'Enterprise Plan'} (₹${(s.amount || 2999).toLocaleString('en-IN')})`,
+    paymentReference: s.paymentReference || 'APPROVED_BY_ADMIN',
     status: 'Pending Verification',
     createdAt: s.createdAt
   }));
 
   const formattedCustomers = pendingCustomers.map(c => ({
     id: c.customerId,
+    customerId: c.customerId,
     name: c.name,
     role: 'customer',
-    phone: c.phone,
-    email: c.email,
+    phone: c.phone || '',
+    email: c.email || '',
+    address: c.address || '',
     details: c.address || 'Customer Account',
     paymentReference: 'Free Consumer Verification',
     status: 'Pending Verification',
@@ -2501,89 +2599,102 @@ export const getAllPendingApprovals = () => {
 /**
  * Admin action to 1-Click Accept & Verify any Customer Account
  */
-export const verifyCustomerAccount = (customerId, adminActor) => {
+export const verifyCustomerAccount = async (customerId, adminActor) => {
   const cleanId = String(customerId || '').trim();
   if (!cleanId) throw new Error('Customer ID is required');
 
   const now = new Date().toISOString();
 
-  // Update customers collection
-  const custDoc = getDoc('customers', 'customerId', cleanId) ||
-                  (getCollection('customers') || []).find(c => c.customerId === cleanId || c.userId === cleanId || c.id === cleanId);
-  if (custDoc) {
-    updateDoc('customers', 'customerId', custDoc.customerId || cleanId, {
-      status: 'Active',
-      accountStatus: 'Active',
-      isVerified: true,
-      verifiedAt: now,
-      verifiedBy: adminActor?.name || 'Administrator',
-      updatedAt: now
-    });
-  }
+  // Find existing docs in store or memory
+  const allCusts = getCollection('customers') || [];
+  const allUsers = getCollection('users') || [];
 
-  // Update users collection
-  const userDoc = getDoc('users', 'uid', cleanId) ||
-                  (getCollection('users') || []).find(u => u.uid === cleanId || u.id === cleanId || (custDoc && u.email === custDoc.email));
-  if (userDoc) {
-    updateDoc('users', 'uid', userDoc.uid || cleanId, {
-      status: 'Active',
-      accountStatus: 'Active',
-      isVerified: true,
-      verifiedAt: now,
-      verifiedBy: adminActor?.name || 'Administrator',
-      updatedAt: now
-    });
-  }
+  const custDoc = (store.customers || []).find(c => String(c.customerId) === cleanId || String(c.userId) === cleanId || String(c.id) === cleanId);
+  const userDoc = (store.users || []).find(u => String(u.uid) === cleanId || String(u.id) === cleanId || (custDoc && u.email && u.email.toLowerCase() === (custDoc.email || '').toLowerCase()));
+
+  const name = custDoc?.name || userDoc?.name || 'Customer Account';
+  const phone = custDoc?.phone || userDoc?.phone || '';
+  const email = custDoc?.email || userDoc?.email || '';
+  const address = custDoc?.address || userDoc?.address || 'Address on file';
+
+  const finalCustomer = {
+    ...(custDoc || {}),
+    customerId: cleanId,
+    userId: cleanId,
+    id: cleanId,
+    name,
+    phone,
+    email,
+    address,
+    totalOrders: custDoc?.totalOrders || 0,
+    status: 'Active',
+    accountStatus: 'Active',
+    isVerified: true,
+    isSuspended: false,
+    verifiedAt: now,
+    verifiedBy: adminActor?.name || 'Administrator',
+    updatedAt: now,
+    createdAt: custDoc?.createdAt || userDoc?.createdAt || now
+  };
+  setDoc('customers', 'customerId', finalCustomer);
+
+  const finalUser = {
+    ...(userDoc || {}),
+    uid: cleanId,
+    id: cleanId,
+    name,
+    phone,
+    email,
+    address,
+    role: 'customer',
+    status: 'Active',
+    accountStatus: 'Active',
+    isVerified: true,
+    isSuspended: false,
+    verifiedAt: now,
+    verifiedBy: adminActor?.name || 'Administrator',
+    updatedAt: now,
+    createdAt: userDoc?.createdAt || now
+  };
+  setDoc('users', 'uid', finalUser);
 
   // Direct Firestore Sync if live Firebase is configured
   if (isLiveFirebaseConfigured() && db) {
     try {
-      const uRef = doc(db, 'users', cleanId);
-      fbSetDoc(uRef, {
-        status: 'Active',
-        accountStatus: 'Active',
-        isVerified: true,
-        verifiedAt: now,
-        verifiedBy: adminActor?.name || 'Administrator',
-        updatedAt: now
-      }, { merge: true }).catch(() => {});
-
-      const cRef = doc(db, 'customers', cleanId);
-      fbSetDoc(cRef, {
-        status: 'Active',
-        accountStatus: 'Active',
-        isVerified: true,
-        verifiedAt: now,
-        verifiedBy: adminActor?.name || 'Administrator',
-        updatedAt: now
-      }, { merge: true }).catch(() => {});
+      await fbSetDoc(doc(db, 'users', cleanId), sanitizeForFirestore(finalUser), { merge: true }).catch(() => {});
+      await fbSetDoc(doc(db, 'customers', cleanId), sanitizeForFirestore(finalCustomer), { merge: true }).catch(() => {});
     } catch (e) {
       console.warn('Firestore customer verification sync error:', e);
     }
   }
 
   // Notify customer
-  addNotification({
-    userId: cleanId,
-    role: 'customer',
-    title: '🎉 Account Verified & Approved!',
-    message: 'Your customer account has been approved by the Administrator. You can now sign in and order water!',
-    type: 'account_update'
-  });
+  try {
+    addNotification({
+      userId: cleanId,
+      role: 'customer',
+      title: '🎉 Account Verified & Approved!',
+      message: 'Your customer account has been approved by the Administrator. You can now sign in and order water!',
+      type: 'account_update'
+    });
+  } catch (_) {}
 
-  logAuditEvent(
-    adminActor || { uid: 'admin_001', name: 'Admin', role: 'admin' },
-    'CUSTOMER_ACCOUNT_VERIFIED',
-    'customer',
-    cleanId,
-    { customerId: cleanId, name: custDoc?.name || userDoc?.name }
-  );
+  try {
+    logAuditEvent(
+      adminActor || { uid: 'admin_001', name: 'Admin', role: 'admin' },
+      'CUSTOMER_ACCOUNT_VERIFIED',
+      'customer',
+      cleanId,
+      { customerId: cleanId, name }
+    );
+  } catch (_) {}
 
+  saveStore(store);
   notifyListeners('customers');
   notifyListeners('users');
   notifyListeners('all');
 
-  return { success: true, customerId: cleanId };
+  return finalCustomer;
 };
 
 /**

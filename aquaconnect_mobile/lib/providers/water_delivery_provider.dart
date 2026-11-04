@@ -33,61 +33,27 @@ class WaterDeliveryProvider extends ChangeNotifier {
   // 8. Sales Report Reset Timestamp (Ensures when reports are reset to ₹0, they strictly display 0)
   DateTime? _salesResetAfter;
 
-  /// Validate supplier name to remove dummy data ("s", "hs", "h", "hn", test, dummy, etc.) and email accounts
+  /// Validate supplier name to remove dummy data while allowing genuine plants like "Water Plant"
   static bool isValidSupplierName(String name, [String? email, String? phone]) {
     final clean = name.trim().toLowerCase();
-    if (clean.length < 3) return false;
+    if (clean.length < 2) return false;
 
-    // Reject any raw email account used as plant/user name
-    if (clean.contains('@')) return false;
-
-    // Strict blacklist of dummy/test names
+    // Strict blacklist of dummy gibberish names only
     const dummyNames = {
       's', 'hs', 'h', 'hn', 'sh', 'hh', 'ss', 'hnn', 'hns', 'test', 'dummy',
-      'asdf', 'xyz', 'demo', 'plant', 'supplier', 'water supplier', 'water plant',
-      'test supplier', 'demo supplier', 'fake', 'sample', 'null', 'undefined',
-      'abc', 'qwerty', 'admin', 'user', 'testing', 'tester', 'trial', 'temp',
+      'asdf', 'xyz', 'demo', 'test supplier', 'demo supplier', 'fake', 'sample', 'null', 'undefined',
+      'abc', 'qwerty', 'testing', 'tester',
     };
     if (dummyNames.contains(clean)) return false;
 
-    // Strict rejection of any name containing dummy words
-    if (clean.contains('test') ||
-        clean.contains('dummy') ||
-        clean.contains('demo') ||
-        clean.contains('fake') ||
-        clean.contains('sample') ||
-        clean.contains('trial') ||
-        clean.contains('temp')) {
+    // Reject pure dummy words
+    if (clean == 'test' || clean == 'dummy' || clean == 'fake' || clean == 'sample') {
       return false;
     }
 
-    // Check dummy email prefix if email provided
-    if (email != null && email.isNotEmpty) {
-      final cleanEmail = email.trim().toLowerCase();
-      if (cleanEmail.contains('test')) return false;
-      final prefix = cleanEmail.split('@').first;
-      if (dummyNames.contains(prefix)) return false;
-      if (prefix.length < 3 && RegExp(r'^[a-z]+$').hasMatch(prefix)) return false;
-    }
-
-    // Reject names containing mock placeholders
-    if (clean.contains('sri krishna') ||
-        clean.contains('aquapure') ||
-        clean.contains('ganga blue')) {
-      return false;
-    }
-
-    // Must contain at least 3 alphabetic letters
-    final letterCount = RegExp(r'[a-zA-Z]').allMatches(clean).length;
-    if (letterCount < 3) return false;
-
-    // Reject repetitive single/double char junk like "hhhh", "ssss", "hshs", "hnhn"
+    // Reject repetitive single char junk like "ssss", "hhhh"
     final uniqueLetters = clean.replaceAll(RegExp(r'[^a-z]'), '').split('').toSet();
-    if (uniqueLetters.length == 1) return false; // e.g. "ssss", "hhhh"
-    if (uniqueLetters.length == 2) {
-      final onlyDummyChars = clean.replaceAll(RegExp(r'[^a-z]'), '').split('').every((c) => c == 'h' || c == 's' || c == 'n');
-      if (onlyDummyChars) return false; // e.g. "hs", "hshs", "hnhn", "hsn"
-    }
+    if (uniqueLetters.length == 1 && clean.length > 3) return false;
 
     return true;
   }

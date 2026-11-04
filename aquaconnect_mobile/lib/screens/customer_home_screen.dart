@@ -433,28 +433,28 @@ class _CustomerStoreTabState extends State<_CustomerStoreTab> {
                     title: 'Normal 20L',
                     subtitle: 'Room Temp',
                     filterTag: 'Normal 20L',
-                    imageUrl: 'https://5.imimg.com/data5/AP/MU/MY-4515526/20-litre-can-jug-jar-dispenser-500x500.jpg',
+                    imageUrl: 'assets/images/bubble_top_can.jpg',
                   ),
                   const SizedBox(width: 8),
                   _buildCategoryCard(
                     title: 'Cool Water',
                     subtitle: 'Chilled 20L',
                     filterTag: 'Cool Water',
-                    imageUrl: 'https://5.imimg.com/data5/SELLER/Default/2021/4/AM/HZ/GJ/35689307/20ltres-cool-can-1--500x500.jpeg',
+                    imageUrl: 'assets/images/cool_water_can.jpg',
                   ),
                   const SizedBox(width: 8),
                   _buildCategoryCard(
                     title: 'Bottles',
                     subtitle: '1L Box 12s',
                     filterTag: 'Water Bottles',
-                    imageUrl: 'https://5.imimg.com/data5/SELLER/Default/2022/11/NF/WB/JJ/45711328/1-litre-packed-drinking-water-bottle-500x500.jpg',
+                    imageUrl: 'assets/images/bottled_water_pack.jpg',
                   ),
                   const SizedBox(width: 8),
                   _buildCategoryCard(
                     title: 'Packets',
                     subtitle: 'Pouches 50s',
                     filterTag: 'Water Packets',
-                    imageUrl: 'https://5.imimg.com/data5/SELLER/Default/2024/3/401402931/HR/MG/JG/11262634/ldpe-packed-drinking-water-pouch-500x500.jpg',
+                    imageUrl: 'assets/images/water_pouches_pack.jpg',
                   ),
                 ],
               ),
@@ -1005,35 +1005,13 @@ class _CustomerStoreTabState extends State<_CustomerStoreTab> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: imageUrl != null && imageUrl.isNotEmpty
-                    ? Image.network(
-                        imageUrl,
-                        height: 48,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (ctx, _, __) => Container(
-                          height: 48,
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE0F2FE),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.water_drop, color: AquaTheme.primary, size: 26),
-                          ),
-                        ),
-                      )
-                    : Container(
-                        height: 48,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: isSelected ? AquaTheme.primary.withValues(alpha: 0.15) : const Color(0xFFE0F2FE),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.water_drop, color: AquaTheme.primary, size: 26),
-                        ),
-                      ),
+                child: ImageUploadService.buildProductImage(
+                  imageUrl,
+                  productName: title,
+                  height: 48,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
               ),
               const SizedBox(height: 4),
               Text(

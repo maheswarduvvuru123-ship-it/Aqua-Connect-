@@ -41,28 +41,14 @@ class WaterDeliveryProvider extends ChangeNotifier {
     // Reject any raw email account used as plant/user name
     if (clean.contains('@')) return false;
 
-    // Reject deleted testing email accounts explicitly (Paddu, Jaya)
-    if (clean.contains('paddu') || clean.contains('jaya')) return false;
-
     // Strict blacklist of dummy/test names
     const dummyNames = {
       's', 'hs', 'h', 'hn', 'sh', 'hh', 'ss', 'hnn', 'hns', 'test', 'dummy',
       'asdf', 'xyz', 'demo', 'plant', 'supplier', 'water supplier', 'water plant',
       'test supplier', 'demo supplier', 'fake', 'sample', 'null', 'undefined',
       'abc', 'qwerty', 'admin', 'user', 'testing', 'tester', 'trial', 'temp',
-      'paddu', 'jaya', 'paddus', 'jayas',
-      "paddu's aqua services", "jaya's aqua services",
-      'paddus aqua services', 'jayas aqua services',
     };
     if (dummyNames.contains(clean)) return false;
-
-    // Reject names ending with 'aqua services' if the prefix is a personal/test handle
-    if (clean.endsWith('aqua services') || clean.endsWith("'s aqua services")) {
-      final prefix = clean.replaceAll("'s aqua services", "").replaceAll(" aqua services", "").trim();
-      if (dummyNames.contains(prefix) || prefix == 'paddu' || prefix == 'jaya') {
-        return false;
-      }
-    }
 
     // Strict rejection of any name containing dummy words
     if (clean.contains('test') ||
@@ -78,9 +64,9 @@ class WaterDeliveryProvider extends ChangeNotifier {
     // Check dummy email prefix if email provided
     if (email != null && email.isNotEmpty) {
       final cleanEmail = email.trim().toLowerCase();
-      if (cleanEmail.contains('paddu') || cleanEmail.contains('jaya') || cleanEmail.contains('test')) return false;
+      if (cleanEmail.contains('test')) return false;
       final prefix = cleanEmail.split('@').first;
-      if (dummyNames.contains(prefix) || prefix == 'paddu' || prefix == 'jaya') return false;
+      if (dummyNames.contains(prefix)) return false;
       if (prefix.length < 3 && RegExp(r'^[a-z]+$').hasMatch(prefix)) return false;
     }
 
@@ -112,7 +98,7 @@ class WaterDeliveryProvider extends ChangeNotifier {
     final sId = order.supplierId.trim().toLowerCase();
 
     // Only exclude orders where plant name is an invalid dummy email plant
-    if (pName.contains('@') || pName.contains("paddu's aqua") || pName.contains("jaya's aqua") || sId.startsWith('sup_000')) {
+    if (pName.contains('@') || sId.startsWith('sup_000')) {
       return true;
     }
     return false;
@@ -172,10 +158,7 @@ class WaterDeliveryProvider extends ChangeNotifier {
   static String sanitizePlantName(String? raw) {
     if (raw == null || raw.trim().isEmpty) return 'AquaConnect Certified Water Plant';
     final clean = raw.trim();
-    if (clean.toLowerCase().contains('paddu') ||
-        clean.toLowerCase().contains('jaya') ||
-        clean.contains('@') ||
-        !isValidSupplierName(clean)) {
+    if (clean.contains('@') && clean.length < 5) {
       return 'AquaConnect Certified Water Plant';
     }
     return clean;
@@ -233,7 +216,7 @@ class WaterDeliveryProvider extends ChangeNotifier {
         name: '20L Normal RO Water Can',
         description: 'Standard 20 Litre room temperature purified RO+UV mineral water in returnable plastic can.',
         price: 50.0,
-        image: 'https://5.imimg.com/data5/AP/MU/MY-4515526/20-litre-can-jug-jar-dispenser-500x500.jpg',
+        image: 'assets/images/bubble_top_can.jpg',
         stock: 100,
         unit: '20L Can',
         containerType: 'Returnable Jar',
@@ -244,7 +227,7 @@ class WaterDeliveryProvider extends ChangeNotifier {
         name: '20L Cool / Chilled Water Can',
         description: 'Freshly chilled 20 Litre purified mineral water insulated camper can with tap for summer and events.',
         price: 65.0,
-        image: 'https://5.imimg.com/data5/SELLER/Default/2021/4/AM/HZ/GJ/35689307/20ltres-cool-can-1--500x500.jpeg',
+        image: 'assets/images/cool_water_can.jpg',
         stock: 60,
         unit: '20L Chilled',
         containerType: 'Returnable Jar',
@@ -255,7 +238,7 @@ class WaterDeliveryProvider extends ChangeNotifier {
         name: '1L Water Bottles (Box of 12)',
         description: 'Carton of twelve 1 Litre packaged natural mineral water plastic bottles with tamper seal.',
         price: 180.0,
-        image: 'https://5.imimg.com/data5/SELLER/Default/2022/11/NF/WB/JJ/45711328/1-litre-packed-drinking-water-bottle-500x500.jpg',
+        image: 'assets/images/bottled_water_pack.jpg',
         stock: 50,
         unit: '1L x 12',
         containerType: 'Packaged Box',
@@ -266,7 +249,7 @@ class WaterDeliveryProvider extends ChangeNotifier {
         name: 'Drinking Water Packets (50 Pouches)',
         description: 'Bundle of 50 hygienic 250ml sealed drinking water pouches for pooja, catering & gatherings.',
         price: 75.0,
-        image: 'https://5.imimg.com/data5/SELLER/Default/2024/3/401402931/HR/MG/JG/11262634/ldpe-packed-drinking-water-pouch-500x500.jpg',
+        image: 'assets/images/water_pouches_pack.jpg',
         stock: 80,
         unit: '250ml x 50',
         containerType: 'Water Packet',
@@ -277,7 +260,7 @@ class WaterDeliveryProvider extends ChangeNotifier {
         name: 'Manual Can Water Dispenser Tap',
         description: 'Food-grade easy press manual water pump tap for 20L cans.',
         price: 120.0,
-        image: 'https://images.unsplash.com/photo-1523362628745-0c100150b504?w=600&auto=format&fit=crop&q=80',
+        image: 'assets/images/cool_water_can.jpg',
         stock: 30,
         unit: '1 Unit',
         containerType: 'Accessory',
@@ -347,56 +330,25 @@ class WaterDeliveryProvider extends ChangeNotifier {
         } catch (_) {}
       }
 
-      // 2. Purge suppliers associated with testing email accounts (Paddu, Jaya)
+      // 2. Only purge seed dummy supplier accounts (sup_001, sup_002)
       final supSnap = await FirebaseFirestore.instance.collection('suppliers').get();
       for (var doc in supSnap.docs) {
-        final d = doc.data();
-        final name = (d['businessName'] ?? d['ownerName'] ?? d['name'] ?? '').toString();
-        final email = (d['email'] ?? '').toString();
-        if (name.toLowerCase().contains('paddu') ||
-            name.toLowerCase().contains('jaya') ||
-            email.toLowerCase().contains('paddu') ||
-            email.toLowerCase().contains('jaya') ||
-            name.contains('@') ||
-            !isValidSupplierName(name, email)) {
-          await FirebaseFirestore.instance.collection('suppliers').doc(doc.id).delete();
-        }
-      }
-
-      // 3. Only purge dummy supplier plants, NEVER customer accounts!
-      final supSnap2 = await FirebaseFirestore.instance.collection('suppliers').get();
-      for (var doc in supSnap2.docs) {
-        final d = doc.data();
-        final name = (d['businessName'] ?? d['name'] ?? '').toString().toLowerCase();
-        if (name.contains("paddu's aqua") || name.contains("jaya's aqua")) {
+        if (doc.id.startsWith('sup_000')) {
           await FirebaseFirestore.instance.collection('suppliers').doc(doc.id).delete();
         }
       }
     } catch (e) {
-      debugPrint('Firestore purge error: $e');
+      debugPrint('Firestore purge note: $e');
     }
   }
 
   void initFirestoreListeners() {
     try {
-      // Run automatic purge of deleted testing accounts and email orders from Firestore
-      purgeTestingEmailAccountsAndOrders();
-
-      // 1. Listen to suppliers in users collection (Strictly clear so deleted testing accounts never linger)
+      // 1. Listen to suppliers in users collection
       FirebaseFirestore.instance.collection('users').snapshots().listen((snap) {
         _suppliers.clear();
         for (var doc in snap.docs) {
           final data = doc.data();
-          final name = (data['name'] ?? '').toString().toLowerCase();
-          final bName = (data['businessName'] ?? '').toString().toLowerCase();
-
-          // Only skip dummy plant names from supplier feed, never delete user account!
-          if (name.contains("paddu's aqua") || name.contains("jaya's aqua") ||
-              bName.contains("paddu's aqua") || bName.contains("jaya's aqua")) {
-            FirebaseFirestore.instance.collection('suppliers').doc(doc.id).delete().catchError((_) {});
-            continue;
-          }
-
           final role = data['role']?.toString().toLowerCase();
           if (role == 'supplier') {
             try {
@@ -412,22 +364,13 @@ class WaterDeliveryProvider extends ChangeNotifier {
         debugPrint('Firestore users suppliers listener error: $err');
       });
 
-      // Also listen to dedicated suppliers collection, but only for active registered accounts
+      // Also listen to dedicated suppliers collection
       FirebaseFirestore.instance.collection('suppliers').snapshots().listen((snap) {
         for (var doc in snap.docs) {
           final data = doc.data();
           final uid = data['supplierId']?.toString() ?? data['uid']?.toString() ?? doc.id;
           final name = data['businessName']?.toString() ?? data['ownerName']?.toString() ?? data['name']?.toString() ?? '';
-          final email = data['email']?.toString() ?? '';
-
-          // If deleted testing email account, purge from Firestore suppliers
-          if (name.toLowerCase().contains('paddu') || name.toLowerCase().contains('jaya') ||
-              email.toLowerCase().contains('paddu') || email.toLowerCase().contains('jaya') ||
-              name.contains('@') || !isValidSupplierName(name, email, data['phone']?.toString())) {
-            FirebaseFirestore.instance.collection('suppliers').doc(doc.id).delete().catchError((_) {});
-            continue;
-          }
-          if (uid.startsWith('sup_00')) continue;
+          if (uid.startsWith('sup_000')) continue;
 
           // Only augment active suppliers that exist in registered users
           if (_suppliers.any((u) => u.uid == uid || (u.email.isNotEmpty && u.email.toLowerCase() == (data['email']?.toString().toLowerCase() ?? '')))) {
@@ -646,33 +589,29 @@ class WaterDeliveryProvider extends ChangeNotifier {
       }
     }
 
-    // 3. Regional Clusters (Town/mandal groupings to ensure proper geographical isolation)
+    // 3. Regional Clusters (Town/mandal groupings to ensure proper geographical grouping)
     const regionalClusters = [
-      // 0: Proddatur / Kadapa District Region
+      // 0: Andhra Pradesh / Rayalaseema Region (Nandyal, Allagadda, Vaddagandla, Kottala, Panyam, Kurnool, Proddatur, Kadapa)
       {
-        'proddatur', 'kottala', 'bollavaram', 'korrapadu', 'mydukur',
-        'jammalamadugu', 'chagalamarri', 'kadapa', 'cuddapah', 'rajampet',
-        'pulivendula', 'badvel', 'kamalapuram',
-        '516360', '516361', '516362', '516001', '516002', '516003', '516004'
+        'allagadda', 'vaddagandla', 'kottala', 'nh40', 'nandyal', 'panyam', 'paniem',
+        'balapanur', 'banaganapalle', 'betamcherla', 'chagalamarri', 'koilkuntla',
+        'proddatur', 'bollavaram', 'korrapadu', 'mydukur', 'jammalamadugu',
+        'kurnool', 'dhone', 'kadapa', 'cuddapah', 'rajampet', 'pulivendula',
+        '518112', '518500', '518501', '518502', '518503', '518504', '518511', '518543',
+        '516360', '516361', '516362', '516001', '516002', '518001', '518002', '518003'
       },
-      // 1: Nandyal District Region (Panyam, Balapanur, Banaganapalle, Allagadda, Betamcherla, NH40)
-      {
-        'nandyal', 'panyam', 'paniem', 'balapanur', 'banaganapalle', 'allagadda',
-        'betamcherla', 'nh40', 'nandikotkur', 'atmakur', 'srisailam', 'koilkuntla',
-        '518112', '518501', '518502', '518503', '518504', '518511'
-      },
-      // 2: Kurnool Region
-      {
-        'kurnool', 'dhone', 'alur', 'adoni', 'yemmiganur', 'pattikonda', 'kodumur',
-        '518001', '518002', '518003', '518004'
-      },
-      // 3: Hyderabad / Cyberabad Region
+      // 1: Hyderabad / Cyberabad Region
       {
         'hyderabad', 'secunderabad', 'gachibowli', 'hitec city', 'whitefields',
         'kondapur', 'madhapur', 'kukatpally', 'jubilee hills', 'banjara hills',
         'manikonda', 'miyapur', 'lingampally', 'chandanagar', 'begumpet',
         'ameerpet', 'financial district', '500032', '500081', '500084'
       },
+      // 2: Coastal Andhra Region (Vijayawada, Guntur, Vizag)
+      {
+        'vijayawada', 'guntur', 'visakhapatnam', 'vizag', 'rajahmundry', 'kakinada',
+        '520001', '520002', '522001', '530001'
+      }
     ];
 
     // Combine supplier location info (address + city + deliveryAreas) for cluster analysis
@@ -702,16 +641,12 @@ class WaterDeliveryProvider extends ChangeNotifier {
       }
     }
 
-    // STRICT CROSS-CLUSTER ISOLATION:
-    // If customer belongs to Cluster A and supplier belongs to Cluster B (A != B),
-    // they are in completely separate geographic territories (e.g. Nandyal vs Proddatur).
-    // Under no circumstances can they service each other across different regions!
-    if (custClusterIndex != null && suppClusterIndex != null && custClusterIndex != suppClusterIndex) {
-      return 0;
-    }
-
     if (custClusterIndex != null && suppClusterIndex != null && custClusterIndex == suppClusterIndex) {
       score += 35; // Direct regional cluster match within same metropolitan/district region!
+    } else if (custClusterIndex == null || suppClusterIndex == null) {
+      score += 15; // Proximity bonus for custom local addresses
+    } else {
+      score += 5;  // Baseline regional connection
     }
 
     // 4. Significant locality keyword extraction (excluding generic terms)
@@ -803,12 +738,11 @@ class WaterDeliveryProvider extends ChangeNotifier {
       scored[s] = sc;
     }
 
-    // STRICT GEOGRAPHIC FILTERING:
-    // Only return plants whose delivery areas, address, or regional cluster match the customer's location (score > 0).
-    // Out-of-region plants (score 0) are strictly excluded!
-    final matchingSuppliers = validSuppliers
-        .where((s) => (scored[s] ?? 0) > 0)
-        .toList()
+    // ZOMATO-STYLE PROXIMITY SORTING:
+    // Sort suppliers by highest location relevance score first.
+    // If exact locality matches exist, return them first.
+    // Never show an empty state if active verified suppliers exist on the platform.
+    final matchingSuppliers = validSuppliers.toList()
       ..sort((a, b) => (scored[b] ?? 0).compareTo(scored[a] ?? 0));
 
     return matchingSuppliers;

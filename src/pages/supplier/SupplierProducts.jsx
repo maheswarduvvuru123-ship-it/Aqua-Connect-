@@ -226,15 +226,32 @@ const SupplierProducts = () => {
               >
                 {/* Image */}
                 <div style={{ position: 'relative', height: '170px', width: '100%', overflow: 'hidden' }}>
-                  <img 
-                    src={product.image} 
-                    alt={product.name}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
-                  />
+                  {(() => {
+                    const fallbackImg = (product.name || '').toLowerCase().includes('cool')
+                      ? '/images/cool_water_can.jpg'
+                      : (product.name || '').toLowerCase().includes('packet') || (product.name || '').toLowerCase().includes('pouch')
+                      ? '/images/water_pouches_pack.jpg'
+                      : (product.name || '').toLowerCase().includes('bottle')
+                      ? '/images/bottled_water_pack.jpg'
+                      : '/images/bubble_top_can.jpg';
+                    const raw = (product.image || '').trim();
+                    const resolved = raw.startsWith('assets/') ? raw.replace('assets', '') : (raw || fallbackImg);
+                    return (
+                      <img 
+                        src={resolved} 
+                        alt={product.name}
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = fallbackImg;
+                        }}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                    );
+                  })()}
                   {/* Status overlay */}
                   <div style={{ position: 'absolute', top: '10px', left: '10px' }}>
                     <span 

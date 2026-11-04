@@ -442,27 +442,13 @@ class _WaterPlantDetailsScreenState extends State<WaterPlantDetailsScreen> {
                                     children: [
                                       ClipRRect(
                                         borderRadius: BorderRadius.circular(12),
-                                        child: Image.network(
+                                        child: ImageUploadService.buildProductImage(
                                           product.image,
+                                          productName: product.name,
+                                          containerType: product.containerType,
                                           width: 95,
                                           height: 95,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (ctx, _, __) => Container(
-                                            width: 95,
-                                            height: 95,
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFE0F2FE),
-                                              borderRadius: BorderRadius.circular(12),
-                                              border: Border.all(color: const Color(0xFFBAE6FD)),
-                                            ),
-                                            child: const Center(
-                                              child: Icon(
-                                                Icons.water_drop,
-                                                size: 44,
-                                                color: AquaTheme.primary,
-                                              ),
-                                            ),
-                                          ),
                                         ),
                                       ),
                                       Positioned(

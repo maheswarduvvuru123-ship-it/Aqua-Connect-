@@ -59,16 +59,19 @@ const CustomerHome = ({ onOpenCart }) => {
 
   const resolveMatchedPlant = () => {
     const custAddr = currentUser?.address || '';
-    if (!custAddr.trim()) {
-      setMatchedPlant(null);
-      return;
-    }
     const surrounding = findSurroundingSuppliers(custAddr, currentUser?.city);
     if (surrounding.length > 0) {
       setMatchedPlant(surrounding[0]);
     } else {
-      // No location match found — don't show a random plant
-      setMatchedPlant(null);
+      const allSuppliers = (getCollection('suppliers') || []).filter(s => 
+        s.status !== 'Deleted from Backend' && s.status !== 'Suspended' && !s.isSuspended
+      );
+      if (allSuppliers.length > 0) {
+        setMatchedPlant(allSuppliers[0]);
+      } else {
+        const allUsers = (getCollection('users') || []).filter(u => u.role === 'supplier' && !u.isSuspended);
+        setMatchedPlant(allUsers[0] || null);
+      }
     }
   };
 
@@ -494,9 +497,17 @@ const CustomerHome = ({ onOpenCart }) => {
                     ? '/images/bottled_water_pack.jpg'
                     : '/images/bubble_top_can.jpg';
 
+                  const resolvedSrc = (() => {
+                    const raw = (product.image || '').trim();
+                    if (raw.startsWith('assets/')) return raw.replace('assets', '');
+                    if (raw.startsWith('/images/')) return raw;
+                    if (raw.startsWith('data:') || raw.startsWith('http')) return raw;
+                    return fallbackImg;
+                  })();
+
                   return (
                     <img 
-                      src={product.image || fallbackImg} 
+                      src={resolvedSrc} 
                       alt={product.name}
                       onError={(e) => {
                         e.currentTarget.onerror = null;

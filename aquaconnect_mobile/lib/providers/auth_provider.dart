@@ -618,13 +618,43 @@ class AuthProvider extends ChangeNotifier {
 
       // 2. Notify supplier document of pending upgrade request
       await FirebaseFirestore.instance.collection('suppliers').doc(uid).set({
+        'status': 'Pending Verification',
+        'accountStatus': 'Pending Verification',
+        'subscriptionStatus': 'Pending Verification',
+        'planName': planName,
+        'billingCycle': billingCycle,
         'pendingPlanId': planId,
         'pendingPlanName': planName,
         'pendingBillingCycle': billingCycle,
         'pendingPaymentReference': paymentReference,
+        'paymentReference': paymentReference,
+        'amount': amount,
         'activeSubscriptionId': subId,
+        'isVerified': false,
         'updatedAt': nowIso,
       }, SetOptions(merge: true));
+
+      // 3. Notify users collection so Admin Portal shows upgrade request immediately
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'accountStatus': 'Pending Verification',
+        'status': 'Pending Verification',
+        'planName': planName,
+        'billingCycle': billingCycle,
+        'pendingPlanName': planName,
+        'pendingBillingCycle': billingCycle,
+        'paymentReference': paymentReference,
+        'amount': amount,
+        'isVerified': false,
+        'updatedAt': nowIso,
+      }, SetOptions(merge: true));
+
+      _currentUser = _currentUser!.copyWith(
+        planName: planName,
+        planId: planId,
+        billingCycle: billingCycle,
+        subscriptionStatus: 'Pending Verification',
+      );
+      notifyListeners();
 
       return null;
     } catch (e) {

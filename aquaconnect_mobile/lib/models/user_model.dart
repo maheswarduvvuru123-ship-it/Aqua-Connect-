@@ -45,6 +45,54 @@ class UserModel {
     required this.createdAt,
   });
 
+  UserModel copyWith({
+    String? uid,
+    String? name,
+    String? email,
+    String? phone,
+    String? role,
+    String? profileImage,
+    String? address,
+    String? city,
+    List<String>? deliveryAreas,
+    String? gstNumber,
+    String? operatingHours,
+    String? openingTime,
+    String? closingTime,
+    bool? isOpenToday,
+    String? upiId,
+    String? upiPhoneNumber,
+    String? planName,
+    String? planId,
+    String? billingCycle,
+    String? subscriptionStatus,
+    DateTime? createdAt,
+  }) {
+    return UserModel(
+      uid: uid ?? this.uid,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      role: role ?? this.role,
+      profileImage: profileImage ?? this.profileImage,
+      address: address ?? this.address,
+      city: city ?? this.city,
+      deliveryAreas: deliveryAreas ?? this.deliveryAreas,
+      gstNumber: gstNumber ?? this.gstNumber,
+      operatingHours: operatingHours ?? this.operatingHours,
+      openingTime: openingTime ?? this.openingTime,
+      closingTime: closingTime ?? this.closingTime,
+      isOpenToday: isOpenToday ?? this.isOpenToday,
+      upiId: upiId ?? this.upiId,
+      upiPhoneNumber: upiPhoneNumber ?? this.upiPhoneNumber,
+      planName: planName ?? this.planName,
+      planId: planId ?? this.planId,
+      billingCycle: billingCycle ?? this.billingCycle,
+      subscriptionStatus: subscriptionStatus ?? this.subscriptionStatus,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
   String get effectiveOperatingHours {
     if (operatingHours != null && operatingHours!.trim().isNotEmpty) {
       return operatingHours!.trim();

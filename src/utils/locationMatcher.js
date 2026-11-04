@@ -49,32 +49,28 @@ export const calculateLocationScore = ({
     }
   }
 
-  // 3. Regional Clusters (Town/mandal groupings to ensure proper geographical isolation)
+  // 3. Regional Clusters (Town/mandal groupings to ensure proper geographical grouping)
   const regionalClusters = [
-    // 0: Proddatur / Kadapa District Region
+    // 0: Andhra Pradesh / Rayalaseema Region (Nandyal, Allagadda, Vaddagandla, Kottala, Panyam, Kurnool, Proddatur, Kadapa)
     new Set([
-      'proddatur', 'kottala', 'bollavaram', 'korrapadu', 'mydukur',
-      'jammalamadugu', 'chagalamarri', 'kadapa', 'cuddapah', 'rajampet',
-      'pulivendula', 'badvel', 'kamalapuram',
-      '516360', '516361', '516362', '516001', '516002', '516003', '516004'
+      'allagadda', 'vaddagandla', 'kottala', 'nh40', 'nandyal', 'panyam', 'paniem',
+      'balapanur', 'banaganapalle', 'betamcherla', 'chagalamarri', 'koilkuntla',
+      'proddatur', 'bollavaram', 'korrapadu', 'mydukur', 'jammalamadugu',
+      'kurnool', 'dhone', 'kadapa', 'cuddapah', 'rajampet', 'pulivendula',
+      '518112', '518500', '518501', '518502', '518503', '518504', '518511', '518543',
+      '516360', '516361', '516362', '516001', '516002', '518001', '518002', '518003'
     ]),
-    // 1: Nandyal District Region (Panyam, Balapanur, Banaganapalle, Allagadda, Vaddagandla, NH40, Betamcherla)
-    new Set([
-      'nandyal', 'panyam', 'paniem', 'balapanur', 'banaganapalle', 'allagadda',
-      'vaddagandla', 'nh40', 'betamcherla', 'nandikotkur', 'atmakur', 'srisailam', 'koilkuntla',
-      '518112', '518501', '518502', '518503', '518504', '518511', '518543'
-    ]),
-    // 2: Kurnool Region
-    new Set([
-      'kurnool', 'dhone', 'alur', 'adoni', 'yemmiganur', 'pattikonda', 'kodumur',
-      '518001', '518002', '518003', '518004'
-    ]),
-    // 3: Hyderabad / Cyberabad Region
+    // 1: Hyderabad / Cyberabad Region
     new Set([
       'hyderabad', 'secunderabad', 'gachibowli', 'hitec city', 'whitefields',
       'kondapur', 'madhapur', 'kukatpally', 'jubilee hills', 'banjara hills',
       'manikonda', 'miyapur', 'lingampally', 'chandanagar', 'begumpet',
       'ameerpet', 'financial district', '500032', '500081', '500084'
+    ]),
+    // 2: Coastal Andhra Region (Vijayawada, Guntur, Vizag)
+    new Set([
+      'vijayawada', 'guntur', 'visakhapatnam', 'vizag', 'rajahmundry', 'kakinada',
+      '520001', '520002', '522001', '530001'
     ])
   ];
 
@@ -111,16 +107,12 @@ export const calculateLocationScore = ({
     }
   });
 
-  // STRICT CROSS-CLUSTER ISOLATION:
-  // If customer belongs to Cluster A and supplier belongs to Cluster B (A != B),
-  // they are in completely separate geographic territories (e.g. Nandyal vs Proddatur).
-  // Under no circumstances can they service each other across different regions!
-  if (custClusterIndex !== null && suppClusterIndex !== null && custClusterIndex !== suppClusterIndex) {
-    return 0;
-  }
-
   if (custClusterIndex !== null && suppClusterIndex !== null && custClusterIndex === suppClusterIndex) {
-    score += 35;
+    score += 35; // Direct regional cluster match
+  } else if (custClusterIndex === null || suppClusterIndex === null) {
+    score += 15; // Flexible proximity for emerging localities
+  } else {
+    score += 5;  // Baseline connectivity
   }
 
   // 4. Significant locality keyword extraction (excluding common address boilerplate)
@@ -165,6 +157,7 @@ export const isLocationMatch = (params) => {
 
 /**
  * Returns suppliers servicing the given customer delivery address, ordered by closest match.
+ * Uses Zomato-style intelligent tiered ranking so customers are never shown a blank/broken state.
  */
 export const findSurroundingSuppliers = (customerAddress = '', customerCity = '') => {
   const allUsers = (getCollection('users') || []).filter(u => 
@@ -204,20 +197,16 @@ export const findSurroundingSuppliers = (customerAddress = '', customerCity = ''
       supplierCity: s.city || '',
       deliveryAreas: s.deliveryAreas || []
     });
-    if (sc > 0) {
-      scored.push({ supplier: s, score: sc });
-    }
+    scored.push({ supplier: s, score: sc });
   }
 
   if (scored.length > 0) {
     scored.sort((a, b) => b.score - a.score);
-    // Only return suppliers with a meaningful location match (score >= 10)
-    const goodMatches = scored.filter(item => item.score >= 10);
-    if (goodMatches.length > 0) return goodMatches.map(item => item.supplier);
+    // Prioritize high-scoring matches, but always return suppliers (Zomato-style)
+    return scored.map(item => item.supplier);
   }
 
-  // No meaningful location match found — return empty so UI shows "no plants near you"
-  return [];
+  return pool;
 };
 
 /**

@@ -174,7 +174,7 @@ class SupplierProductsScreen extends StatelessWidget {
                   name: nameCtrl.text.trim(),
                   description: 'Purified mineral water supplied directly from plant.',
                   price: double.tryParse(priceCtrl.text) ?? 50.0,
-                  image: pickedImageUrl ?? 'https://5.imimg.com/data5/AP/MU/MY-4515526/20-litre-can-jug-jar-dispenser-500x500.jpg',
+                  image: pickedImageUrl ?? 'assets/images/bubble_top_can.jpg',
                   stock: int.tryParse(stockCtrl.text) ?? 50,
                   unit: unitCtrl.text.trim(),
                   containerType: containerType,
@@ -285,20 +285,13 @@ class SupplierProductsScreen extends StatelessWidget {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: ImageUploadService.buildImageWidget(
+                          child: ImageUploadService.buildProductImage(
                             prod.image,
+                            productName: prod.name,
+                            containerType: prod.containerType,
                             width: 50,
                             height: 50,
                             fit: BoxFit.cover,
-                            placeholder: Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: AquaTheme.primaryLight,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(Icons.water_drop, color: AquaTheme.primary, size: 28),
-                            ),
                           ),
                         ),
                         const SizedBox(width: 14),

@@ -52,7 +52,7 @@ const AdminAccounts = () => {
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [orders, setOrders] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [liveOnly, setLiveOnly] = useState(false);
+  const [liveOnly, setLiveOnly] = useState(true);
 
   const isDummyAccount = (item) => isDummyRecord(item);
 
@@ -767,12 +767,20 @@ const AdminAccounts = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', flexWrap: 'wrap', gap: '8px' }}>
                   <div style={{ fontSize: '0.75rem', color: '#6b21a8', fontWeight: 600 }}>
                     Plan: {sub?.planName || sup.planName || 'Free Starter'} {sub?.billingCycle ? `(${sub.billingCycle})` : ''} • 
                     <span style={{ color: isSuspended ? '#b45309' : (sub?.status === 'Active' || sup.status === 'Active') ? '#16a34a' : '#d97706', fontWeight: 700, marginLeft: '4px' }}>
                       {isSuspended ? 'Suspended / Stopped' : (sub?.status || sup.status || 'Active')}
                     </span>
+                    {(sub?.status === 'Pending Verification' || sup.status === 'Pending Verification') && (
+                      <div style={{ color: '#b45309', fontWeight: 700, marginTop: '3px' }}>
+                        ⚠️ Pending Plan Upgrade: {sub?.planName || sup.pendingPlanName || 'Enterprise'} (₹{sub?.amount || sup.amount || 2999})
+                        {(sub?.paymentReference || sup.pendingPaymentReference) && (
+                          <span> • UTR: {sub?.paymentReference || sup.pendingPaymentReference}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -790,17 +798,20 @@ const AdminAccounts = () => {
                             }
                           }}
                           style={{
-                            padding: '4px 10px',
+                            padding: '6px 12px',
                             backgroundColor: '#16a34a',
                             color: '#ffffff',
                             border: 'none',
-                            borderRadius: '6px',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            cursor: 'pointer'
+                            borderRadius: '8px',
+                            fontSize: '0.75rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
                           }}
                         >
-                          ✓ Accept & Verify Account
+                          ✓ Accept & Activate Plan
                         </button>
                         <button
                           type="button"

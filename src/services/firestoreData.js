@@ -23,18 +23,17 @@ export const isEmailAccountOrder = (order) => {
   const sId = (order.supplierId || '').toLowerCase();
   const phone = (order.customerPhone || '').toLowerCase();
 
-  if (cName.includes('@') || pName.includes('@') || cId.includes('@') || phone.includes('@')) return true;
-  if (cName.includes('paddu') || cName.includes('jaya') || pName.includes('paddu') || pName.includes('jaya') || cId.includes('paddu') || cId.includes('jaya')) return true;
+  // Only reject if plant name or supplierId is an invalid raw dummy id
+  if (sId.startsWith('sup_000') || pName === 'test plant') return true;
   return false;
 };
 
 export const sanitizeDisplayName = (name, fallback = 'Customer') => {
   if (!name || !name.trim()) return fallback;
   const clean = name.trim();
-  if (clean.toLowerCase().includes('paddu') || clean.toLowerCase().includes('jaya')) return fallback;
   if (clean.includes('@')) {
     const prefix = clean.split('@')[0].replace(/[^a-zA-Z0-9 ]/g, ' ').trim();
-    if (!prefix || prefix.toLowerCase() === 'paddu' || prefix.toLowerCase() === 'jaya') return fallback;
+    if (!prefix) return fallback;
     return prefix.split(' ').map(w => w ? w[0].toUpperCase() + w.slice(1) : '').join(' ').trim();
   }
   return clean;
@@ -43,7 +42,7 @@ export const sanitizeDisplayName = (name, fallback = 'Customer') => {
 export const sanitizePlantName = (name) => {
   if (!name || !name.trim()) return 'AquaConnect Certified Water Plant';
   const clean = name.trim();
-  if (clean.toLowerCase().includes('paddu') || clean.toLowerCase().includes('jaya') || clean.includes('@')) {
+  if (clean.includes('@') && clean.length < 5) {
     return 'AquaConnect Certified Water Plant';
   }
   return clean;
@@ -1816,8 +1815,13 @@ export const registerTrialUsage = (email = '', phone = '', supplierId = '') => {
 };
 
 export const getSupplierSubscription = (supplierId) => {
-  const subs = getCollection('supplier_subscriptions') || [];
-  return subs.find(s => s.supplierId === supplierId) || null;
+  const subs = (getCollection('supplier_subscriptions') || []).filter(s => String(s.supplierId) === String(supplierId));
+  if (subs.length === 0) return null;
+  // Prioritize pending verification upgrades so they are always visible to Admin and Supplier
+  const pending = subs.find(s => s.status === 'Pending Verification' || s.status === 'Pending');
+  if (pending) return pending;
+  // Otherwise return the most recent subscription
+  return subs.sort((a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0))[0];
 };
 
 export const checkSupplierSubscriptionValid = (supplierId) => {
@@ -2094,6 +2098,15 @@ export const requestSupplierSubscription = ({
     planName: isFree ? 'Free Trial (1 Day)' : plan.name,
     billingCycle: isFree ? '1-Day Free Trial' : billingCycle,
     status: initialStatus === 'Active' ? 'Active' : 'Pending Verification',
+    accountStatus: initialStatus === 'Active' ? 'Active' : 'Pending Verification',
+    subscriptionStatus: initialStatus,
+    pendingPlanId: plan.planId,
+    pendingPlanName: plan.name,
+    pendingBillingCycle: billingCycle,
+    pendingPaymentReference: paymentReference,
+    paymentReference: paymentReference,
+    amount: Number(amount) || (billingCycle === 'Yearly' ? plan.yearlyPrice : plan.monthlyPrice) || 0,
+    isVerified: isFree ? true : false,
     isTrial: isFree,
     trialStartDate: isFree ? nowIso : null,
     trialEndDate: isFree ? expiryDate.toISOString() : null,
@@ -2103,13 +2116,54 @@ export const requestSupplierSubscription = ({
   // Also update user record
   updateDoc('users', 'uid', supplierId, {
     accountStatus: initialStatus === 'Active' ? 'Active' : 'Pending Verification',
+    status: initialStatus === 'Active' ? 'Active' : 'Pending Verification',
     planName: isFree ? 'Free Trial (1 Day)' : plan.name,
     billingCycle: isFree ? '1-Day Free Trial' : billingCycle,
+    pendingPlanName: plan.name,
+    pendingBillingCycle: billingCycle,
+    paymentReference: paymentReference,
+    amount: Number(amount) || (billingCycle === 'Yearly' ? plan.yearlyPrice : plan.monthlyPrice) || 0,
+    isVerified: isFree ? true : false,
     isTrial: isFree,
     trialStartDate: isFree ? nowIso : null,
     trialEndDate: isFree ? expiryDate.toISOString() : null,
     hasUsedTrial: isFree ? true : false
   });
+
+  // Direct Firestore cloud synchronization
+  if (isLiveFirebaseConfigured() && db) {
+    try {
+      fbSetDoc(doc(db, 'supplier_subscriptions', subId), sanitizeForFirestore(newSub), { merge: true }).catch(() => {});
+      fbSetDoc(doc(db, 'suppliers', supplierId), sanitizeForFirestore({
+        activeSubscriptionId: subId,
+        status: initialStatus,
+        accountStatus: initialStatus,
+        subscriptionStatus: initialStatus,
+        planName: isFree ? 'Free Trial (1 Day)' : plan.name,
+        billingCycle: isFree ? '1-Day Free Trial' : billingCycle,
+        pendingPlanId: plan.planId,
+        pendingPlanName: plan.name,
+        pendingBillingCycle: billingCycle,
+        pendingPaymentReference: paymentReference,
+        paymentReference: paymentReference,
+        amount: Number(amount) || (billingCycle === 'Yearly' ? plan.yearlyPrice : plan.monthlyPrice) || 0,
+        isVerified: isFree ? true : false,
+        updatedAt: nowIso
+      }), { merge: true }).catch(() => {});
+      fbSetDoc(doc(db, 'users', supplierId), sanitizeForFirestore({
+        accountStatus: initialStatus,
+        status: initialStatus,
+        planName: isFree ? 'Free Trial (1 Day)' : plan.name,
+        billingCycle: isFree ? '1-Day Free Trial' : billingCycle,
+        pendingPlanName: plan.name,
+        pendingBillingCycle: billingCycle,
+        paymentReference: paymentReference,
+        amount: Number(amount) || (billingCycle === 'Yearly' ? plan.yearlyPrice : plan.monthlyPrice) || 0,
+        isVerified: isFree ? true : false,
+        updatedAt: nowIso
+      }), { merge: true }).catch(() => {});
+    } catch (_) {}
+  }
 
   if (isFree) {
     const sDoc = getDoc('suppliers', 'supplierId', supplierId);
@@ -2146,14 +2200,18 @@ export const getPendingSupplierApprovals = () => {
   subs.forEach(s => {
     const sId = String(s.supplierId || '');
     if ((s.status === 'Pending Verification' || s.status === 'Pending') && !deletedIds.has(sId)) {
+      const u = users.find(user => String(user.uid) === sId) || {};
+      const sup = sups.find(supplier => String(supplier.supplierId) === sId) || {};
       pendingList.push({
         subscriptionId: s.subscriptionId,
         supplierId: s.supplierId,
-        supplierName: s.supplierName || 'Water Supplier Plant',
-        planName: s.planName || 'Enterprise Aqua',
-        billingCycle: s.billingCycle || 'Monthly',
-        amount: s.amount || 2999,
-        paymentReference: s.paymentReference || 'N/A',
+        supplierName: s.supplierName || sup.businessName || u.name || 'Water Supplier Plant',
+        phone: sup.phone || u.phone || '',
+        email: sup.email || u.email || '',
+        planName: s.planName || sup.pendingPlanName || 'Enterprise Aqua',
+        billingCycle: s.billingCycle || sup.pendingBillingCycle || 'Monthly',
+        amount: s.amount || sup.amount || 2999,
+        paymentReference: s.paymentReference || sup.pendingPaymentReference || 'N/A',
         paymentMethod: s.paymentMethod || 'UPI Platform Direct',
         status: 'Pending Verification',
         createdAt: s.createdAt || new Date().toISOString()
@@ -2166,15 +2224,17 @@ export const getPendingSupplierApprovals = () => {
   sups.forEach(s => {
     const id = String(s.supplierId || s.id || '');
     if (id && !processedSupplierIds.has(id) && !deletedIds.has(id) && !deletedEmails.has((s.email || '').toLowerCase().trim())) {
-      if (s.status === 'Pending Verification' || s.isVerified === false) {
+      if (s.status === 'Pending Verification' || s.isVerified === false || s.accountStatus === 'Pending Verification' || s.pendingPlanId) {
         pendingList.push({
           subscriptionId: s.activeSubscriptionId || `sub_gen_${id}`,
           supplierId: id,
           supplierName: s.businessName || s.plantName || s.ownerName || 'Water Plant',
-          planName: s.planName || 'Enterprise Aqua',
-          billingCycle: s.billingCycle || 'Monthly',
+          phone: s.phone || '',
+          email: s.email || '',
+          planName: s.pendingPlanName || s.planName || 'Enterprise Aqua',
+          billingCycle: s.pendingBillingCycle || s.billingCycle || 'Monthly',
           amount: s.amount || 2999,
-          paymentReference: s.paymentReference || 'Pending UTR Verification',
+          paymentReference: s.pendingPaymentReference || s.paymentReference || 'Pending UTR Verification',
           paymentMethod: 'UPI Direct',
           status: 'Pending Verification',
           createdAt: s.createdAt || new Date().toISOString()
@@ -2188,15 +2248,17 @@ export const getPendingSupplierApprovals = () => {
   users.forEach(u => {
     const id = String(u.uid || u.id || '');
     if (id && !processedSupplierIds.has(id) && !deletedIds.has(id) && !deletedEmails.has((u.email || '').toLowerCase().trim())) {
-      if (u.accountStatus === 'Pending Verification' || u.isVerified === false) {
+      if (u.accountStatus === 'Pending Verification' || u.isVerified === false || u.status === 'Pending Verification') {
         pendingList.push({
           subscriptionId: `sub_gen_${id}`,
           supplierId: id,
           supplierName: u.name || `${u.email}'s Water Plant`,
-          planName: u.planName || 'Enterprise Aqua',
-          billingCycle: u.billingCycle || 'Monthly',
+          phone: u.phone || '',
+          email: u.email || '',
+          planName: u.pendingPlanName || u.planName || 'Enterprise Aqua',
+          billingCycle: u.pendingBillingCycle || u.billingCycle || 'Monthly',
           amount: u.amount || 2999,
-          paymentReference: 'Pending UTR Verification',
+          paymentReference: u.paymentReference || 'Pending UTR Verification',
           paymentMethod: 'UPI Direct',
           status: 'Pending Verification',
           createdAt: u.createdAt || new Date().toISOString()

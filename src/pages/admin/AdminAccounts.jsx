@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, 
   Building2, 
@@ -17,7 +17,9 @@ import {
   Filter,
   Pause,
   Play,
-  Clock
+  Clock,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { 
   getCollection, 
@@ -54,6 +56,7 @@ const AdminAccounts = () => {
   const [orders, setOrders] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [liveOnly, setLiveOnly] = useState(true);
+  const customerTableRef = useRef(null);
 
   const isDummyAccount = (item) => isDummyRecord(item);
 
@@ -626,10 +629,12 @@ const AdminAccounts = () => {
                           if (item.role === 'supplier') {
                             await acceptAndVerifySupplier(item, currentUser);
                             showToast(`✓ Accepted & Verified supplier: ${item.name}! Stored in Water Suppliers directory.`, 'success');
+                            setSearchQuery('');
                             setActiveTab('suppliers');
                           } else {
                             await verifyCustomerAccount(item.id || item.customerId, currentUser);
                             showToast(`✓ Accepted & Verified customer: ${item.name}! Stored in Customers directory.`, 'success');
+                            setSearchQuery('');
                             setActiveTab('customers');
                           }
                           loadData();
@@ -911,27 +916,67 @@ const AdminAccounts = () => {
         </div>
       ) : activeTab === 'customers' ? (
         <div className="card" style={{ padding: 0, borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>
-          {/* Horizontal Slide Guidance Banner */}
-          <div style={{ padding: '10px 18px', backgroundColor: '#f1f5f9', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: '#334155', fontWeight: 600 }}>
-              <span>↔️ <strong>Slide / Scroll Horizontally:</strong> Move table left-to-right to view all columns & action buttons (Delete, Stop, Accept).</span>
+          {/* Horizontal Slide Guidance Banner with 1-Click Scroll Controls */}
+          <div style={{ padding: '12px 18px', backgroundColor: '#f8fafc', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: '#1e293b', fontWeight: 600 }}>
+              <span>↔️ <strong>Horizontal View Controls:</strong> Use slide buttons or scroll left-to-right:</span>
+              <button
+                type="button"
+                onClick={() => customerTableRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
+                style={{
+                  padding: '5px 12px',
+                  backgroundColor: '#ffffff',
+                  color: '#0284c7',
+                  border: '1px solid #bae6fd',
+                  borderRadius: '6px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+              >
+                <ChevronLeft size={14} /> Slide Left
+              </button>
+              <button
+                type="button"
+                onClick={() => customerTableRef.current?.scrollBy({ left: 320, behavior: 'smooth' })}
+                style={{
+                  padding: '5px 12px',
+                  backgroundColor: '#0284c7',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  boxShadow: '0 1px 3px rgba(2, 132, 199, 0.3)'
+                }}
+              >
+                Slide Right (Delete & Actions) <ChevronRight size={14} />
+              </button>
             </div>
-            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>
+            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 700 }}>
               Showing {filteredCustomers.length} Live Customer Accounts
             </div>
           </div>
 
-          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}>
-            <table style={{ width: '100%', minWidth: '1050px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+          <div ref={customerTableRef} style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%', position: 'relative' }}>
+            <table style={{ width: '100%', minWidth: '980px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
               <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid var(--border-light)' }}>
                 <tr>
-                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', minWidth: '180px' }}>Customer Name</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', minWidth: '200px' }}>Customer Name</th>
                   <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', minWidth: '130px' }}>Contact Phone</th>
                   <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', minWidth: '180px' }}>Email</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', minWidth: '220px' }}>Primary Address</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', minWidth: '200px' }}>Primary Address</th>
                   <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center', minWidth: '90px' }}>Total Orders</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center', minWidth: '140px' }}>Account Status</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center', minWidth: '220px' }}>Admin Actions</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center', minWidth: '130px' }}>Account Status</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center', minWidth: '200px', position: 'sticky', right: 0, backgroundColor: '#f8fafc', zIndex: 2, boxShadow: '-3px 0 6px rgba(0,0,0,0.04)' }}>Admin Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -945,7 +990,7 @@ const AdminAccounts = () => {
                   filteredCustomers.map(cust => (
                     <tr key={cust.customerId} style={{ borderBottom: '1px solid var(--border-light)' }}>
                       <td style={{ padding: '14px 18px', fontWeight: 700 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                           <span>{cust.name}</span>
                           <span 
                             style={{
@@ -959,6 +1004,29 @@ const AdminAccounts = () => {
                           >
                             {isDummyAccount(cust) ? '📦 Demo' : '🟢 Live'}
                           </span>
+                        </div>
+                        {/* Instant Quick Delete Button right in Column 1 (0 Scroll Needed!) */}
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px', alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCustomer(cust.customerId || cust.id, cust.name)}
+                            style={{
+                              padding: '3px 8px',
+                              backgroundColor: '#fee2e2',
+                              color: '#b91c1c',
+                              border: '1px solid #f87171',
+                              borderRadius: '5px',
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}
+                            title="Delete this customer account permanently"
+                          >
+                            <Trash2 size={11} /> Delete
+                          </button>
                         </div>
                       </td>
                       <td style={{ padding: '14px 18px', color: 'var(--text-secondary)' }}>
@@ -988,7 +1056,7 @@ const AdminAccounts = () => {
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: '14px 18px', textAlign: 'center', minWidth: '220px' }}>
+                      <td style={{ padding: '14px 18px', textAlign: 'center', minWidth: '200px', position: 'sticky', right: 0, backgroundColor: '#ffffff', zIndex: 1, boxShadow: '-3px 0 6px rgba(0,0,0,0.04)' }}>
                         <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'center' }}>
                           {(cust.status === 'Pending Verification' || cust.accountStatus === 'Pending Verification' || !cust.isVerified) && (
                             <>
@@ -1093,9 +1161,9 @@ const AdminAccounts = () => {
                               gap: '4px',
                               boxShadow: '0 1px 3px rgba(185, 28, 28, 0.15)'
                             }}
-                            title="Permanently delete customer account"
+                            title="Delete this customer account"
                           >
-                            <Trash2 size={12} /> Delete
+                            <Trash2 size={13} /> Delete
                           </button>
                         </div>
                       </td>

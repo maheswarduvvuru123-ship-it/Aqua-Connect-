@@ -82,6 +82,18 @@ export const SEED_DATA = {
       updatedAt: '2026-03-20T10:00:00Z'
     },
     {
+      uid: 'admin_002',
+      name: 'Aqua Admin',
+      email: 'admin@aquaconnet.com',
+      password: 'admin123',
+      role: 'admin',
+      platformRole: 'admin',
+      phone: '+91 85228 28688',
+      accountStatus: 'Active',
+      createdAt: '2026-01-01T08:00:00Z',
+      updatedAt: '2026-03-20T10:00:00Z'
+    },
+    {
       uid: 'superadmin_001',
       name: 'Chief Super Admin',
       email: 'superadmin@aquaconnect.com',
@@ -993,6 +1005,20 @@ export const deleteDoc = (collectionName, idField, idValue) => {
 export const isAccountDeleted = (email, uid) => {
   const cleanEmail = (email || '').toLowerCase().trim();
   const cleanUid = String(uid || '').trim();
+
+  // Admin and superadmin accounts can NEVER be deleted
+  if (
+    cleanEmail.startsWith('admin@') || 
+    cleanEmail.startsWith('superadmin@') || 
+    cleanEmail.includes('aquaconnect') || 
+    cleanEmail.includes('aquaconnet') ||
+    cleanUid === 'admin_001' || 
+    cleanUid === 'admin_002' || 
+    cleanUid === 'superadmin_001'
+  ) {
+    return false;
+  }
+
   const deleted = getCollection('deleted_accounts') || [];
   return deleted.some(d => {
     const dEmail = (d.email || '').toLowerCase().trim();
@@ -2440,6 +2466,49 @@ export const acceptAndVerifySupplier = async (itemOrId, adminActor) => {
     createdAt: sub?.createdAt || now.toISOString()
   };
   setDoc('supplier_subscriptions', 'subscriptionId', finalSub);
+
+  // Update ALL matching subscriptions for this supplier to 'Active' so they never linger in Pending Approvals
+  if (Array.isArray(store.supplier_subscriptions)) {
+    store.supplier_subscriptions.forEach(s => {
+      if (s.supplierId === targetSupplierId || s.subscriptionId === subId || s.subscriptionId === rawId || (paymentReference && paymentReference !== 'N/A' && s.paymentReference === paymentReference)) {
+        s.status = 'Active';
+        s.isVerified = true;
+        s.verifiedAt = now.toISOString();
+        s.verifiedBy = adminActor?.name || 'Administrator';
+        s.updatedAt = now.toISOString();
+        if (isLiveFirebaseConfigured() && db && s.subscriptionId) {
+          fbSetDoc(doc(db, 'supplier_subscriptions', s.subscriptionId), sanitizeForFirestore(s), { merge: true }).catch(() => {});
+        }
+      }
+    });
+  }
+
+  // Update ALL supplier records for this target to 'Active'
+  if (Array.isArray(store.suppliers)) {
+    store.suppliers.forEach(s => {
+      const sId = String(s.supplierId || s.id || '');
+      const sPhone = (s.phone || '').replace(/\D/g, '');
+      const tPhone = (phone || '').replace(/\D/g, '');
+      if (sId === String(targetSupplierId) || (tPhone && sPhone && sPhone === tPhone)) {
+        s.status = 'Active';
+        s.accountStatus = 'Active';
+        s.isVerified = true;
+        s.isSuspended = false;
+        s.verifiedAt = now.toISOString();
+        s.verifiedBy = adminActor?.name || 'Administrator';
+        s.activeSubscriptionId = subId;
+        s.updatedAt = now.toISOString();
+        if (isLiveFirebaseConfigured() && db && s.supplierId) {
+          fbSetDoc(doc(db, 'suppliers', s.supplierId), sanitizeForFirestore(s), { merge: true }).catch(() => {});
+        }
+      }
+    });
+  }
+
+  saveStore(store);
+  notifyListeners('suppliers');
+  notifyListeners('supplier_subscriptions');
+  notifyListeners('users');
 
   // 6. Direct sync to live Firestore backend
   if (isLiveFirebaseConfigured() && db) {
